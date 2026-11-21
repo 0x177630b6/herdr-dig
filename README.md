@@ -73,6 +73,10 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
 Delete `~/.config/herdr-app/mods/fleet-*`, `layouts/herdr-fleet.*`,
 `themes/herdr-fleet-*.json` and the `layout:herdr-fleet` section of `keys.json`.
 
+## Licence
+
+MIT, see `LICENSE`. The Silkscreen font keeps its own licence (below).
+
 ## Credits
 
 Pixel font: Silkscreen by Jason Kottke, SIL Open Font License
