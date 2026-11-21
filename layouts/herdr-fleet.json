@@ -1,0 +1,73 @@
+{
+  "id": "root",
+  "cloned_from": { "name": "main", "version": "0.1.10" },
+  "type": "row",
+  "preview": "layouts/herdr-fleet.svg",
+  "theme": "herdr-fleet-dark",
+  "font": "JetBrains Mono",
+  "font_size": 12.5,
+  "ui_font": "JetBrains Mono",
+  "divider": { "width": 1, "color": "border" },
+  "background": "canvas",
+  "titlebar": "none",
+  "traffic_lights": [14, 21],
+  "terminal_padding": [10, 14],
+  "terminal_menu": "menu",
+  "children": [
+    {
+      "id": "sidebar", "type": "column", "size": { "px": 300 }, "min": 240, "max": 480, "background": "chrome",
+      "children": [
+        { "id": "banner", "type": "block", "size": { "px": 58 }, "window_drag": true, "content": { "mod": "fleet-chrome", "props": { "part": "banner" } } },
+        { "id": "sidebar-modes", "type": "block", "size": { "px": 108 }, "content": { "mod": "fleet-chrome", "props": { "part": "modes" } } },
+        {
+          "id": "sidebar-lists", "type": "stack", "active": "projects",
+          "children": [
+            { "id": "projects", "type": "block", "content": { "mod": "fleet-agents", "props": { "group": "project" } } },
+            { "id": "machines", "type": "block", "content": { "mod": "fleet-agents", "props": { "group": "machine" } } },
+            { "id": "inbox", "type": "block", "content": { "mod": "fleet-agents", "props": { "group": "status" } } },
+            { "id": "office-mini", "type": "block", "content": { "mod": "fleet-office", "props": { "compact": true } } }
+          ]
+        },
+        { "id": "sidebar-footer", "type": "block", "size": { "px": 60 }, "content": { "mod": "fleet-chrome", "props": { "part": "footer" } } }
+      ]
+    },
+    {
+      "id": "work", "type": "column", "background": "chrome", "resizable": false,
+      "children": [
+        { "id": "tabs-row", "type": "block", "size": { "px": 44 }, "window_drag": true, "content": { "mod": "fleet-tabs" } },
+        { "id": "rail", "type": "block", "size": { "px": 30 }, "content": { "mod": "fleet-chrome", "props": { "part": "rail" } } },
+        {
+          "id": "work-view", "type": "stack", "active": "crew",
+          "floating": [
+            { "id": "toast", "content": { "mod": "fleet-notify", "props": { "part": "toast" } }, "edge": "top", "align": "end" }
+          ],
+          "children": [
+            {
+              "id": "crew", "type": "row", "padding": 8, "gap": 8, "resizable": false,
+              "children": [
+                { "id": "crew-empty", "type": "block", "content": { "mod": "fleet-pane", "props": { "empty": true } } }
+              ]
+            },
+            {
+              "id": "tab", "type": "block",
+              "content": {
+                "tab": "active",
+                "pane": {
+                  "background": "background",
+                  "border": { "width": 1, "color": "border" },
+                  "focus": { "width": 1, "color": "accent" },
+                  "radius": 0, "gap": 8, "lone": true,
+                  "header": { "content": { "mod": "fleet-pane" }, "reveal": "always", "height": 32, "position": "top" }
+                }
+              }
+            },
+            { "id": "home", "type": "block", "content": { "mod": "fleet-board" } },
+            { "id": "office", "type": "block", "content": { "mod": "fleet-office" } }
+          ]
+        },
+        { "id": "ground", "type": "block", "size": { "px": 16 }, "content": { "mod": "fleet-chrome", "props": { "part": "ground" } } },
+        { "id": "status", "type": "block", "size": { "px": 30 }, "content": { "mod": "fleet-status" } }
+      ]
+    }
+  ]
+}

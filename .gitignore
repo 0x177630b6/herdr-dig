@@ -1,0 +1,3 @@
+# install.sh copies src/lib.js into each mod
+mods/*/lib.js
+.DS_Store
