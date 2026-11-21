@@ -4,10 +4,11 @@
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, window } from "herdr";
-import { SPR, PIXEL, tk, fleet, pref, sidebarMode, setSidebarMode, toggleTheme, pixelButton, statusIcon, strip, ground } from "./lib.js";
+import { SPR, PIXEL, tk, fleet, pref, sidebarMode, setSidebarMode, toggleTheme, pixelButton, statusIcon, sprite, strip, ground } from "./lib.js";
 
 const MODES = [["projects", "Projects"], ["machines", "Machines"], ["inbox", "Inbox"], ["office-mini", "Office"]];
 const CROSSING = 26000;
+const STILL = { blocked: "i_block_still.png", done: "i_done_still.png", working: "i_work_still.png", idle: "i_idle_still.png" };
 
 export default class FleetChrome extends View {
   init(_props, cx) {
@@ -50,8 +51,9 @@ export default class FleetChrome extends View {
   modes(t) {
     const mode = sidebarMode();
     const c = fleet().counts;
+    // A count of zero is drawn still and faint: only what is happening moves.
     const count = (status, n, label) => h_flex().gap(5).items_center().flex_none()
-      .child(statusIcon(status)).child(div().font_semibold().text_color(t.text).child(String(n))).child(label);
+      .child(n ? statusIcon(status) : sprite(STILL[status], 16).opacity(0.55)).child(div().font_semibold().text_color(t.text).child(String(n))).child(label);
     return v_flex().size_full().bg(t.chrome).text_color(t.text)
       .child(h_flex().gap(4).pt(10).pb(6).pl(10).pr(10)
         .children(MODES.map(([id, label]) => pixelButton(`mode-${id}`, t, { active: mode === id, h: 36, px: 0, grow: true },

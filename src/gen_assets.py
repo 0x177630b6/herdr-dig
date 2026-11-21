@@ -45,6 +45,6 @@ tile('ground.png', 960, 16, 'ground_960.png')
 tile('rail.png', 960, 8, 'rail_960.png')
 tile('cave.png', 640, 640, 'cave_640.png')
 # still frames, for reduced motion and offline machines
-for g in ('i_host', 'cart', 'i_idle', 'miner_idle'):
+for g in ('i_host', 'cart', 'i_idle', 'miner_idle', 'i_block', 'i_done', 'i_work'):
     Image.open(os.path.join(src, g + '.gif')).convert('RGBA').save(os.path.join(out, g + '_still.png'))
 print(len(os.listdir(out)), 'files')
