@@ -14,6 +14,31 @@ for mod in "$HERE"/mods/fleet-*; do
 done
 
 mkdir -p "$HOME_DIR/mods" "$HOME_DIR/layouts" "$HOME_DIR/themes"
+
+# macOS shows a notification under the icon of the app that posts it: build a tiny
+# notifier app carrying the layout's pixel icon (Script Editor's icon otherwise).
+build_notifier() {
+  src="$HERE/mods/fleet-notify"; app="$HOME_DIR/mods/fleet-notify/Herdr Fleet.app"
+  [ "$(uname)" = "Darwin" ] || return 0
+  [ -d "$app" ] && [ "$app" -nt "$src/notifier.js" ] && [ "$app" -nt "$src/icon.png" ] && return 0
+  tmp=$(mktemp -d) || return 1
+  mkdir -p "$HOME_DIR/mods/fleet-notify" "$tmp/fleet.iconset"
+  for n in 16 32 128 256 512; do
+    sips -z "$n" "$n" "$src/icon.png" --out "$tmp/fleet.iconset/icon_${n}x${n}.png" >/dev/null || return 1
+    sips -z $((n * 2)) $((n * 2)) "$src/icon.png" --out "$tmp/fleet.iconset/icon_${n}x${n}@2x.png" >/dev/null || return 1
+  done
+  iconutil -c icns "$tmp/fleet.iconset" -o "$tmp/fleet.icns" || return 1
+  osacompile -l JavaScript -o "$tmp/Herdr Fleet.app" "$src/notifier.js" || return 1
+  cp "$tmp/fleet.icns" "$tmp/Herdr Fleet.app/Contents/Resources/applet.icns"
+  rm -f "$tmp/Herdr Fleet.app/Contents/Resources/Assets.car"
+  plist="$tmp/Herdr Fleet.app/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$plist" >/dev/null
+  /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string dev.herdr-fleet.notifier" "$plist" >/dev/null
+  codesign --force -s - "$tmp/Herdr Fleet.app" >/dev/null 2>&1 || return 1
+  [ -d "$app" ] && mv "$app" "$tmp/old.app"
+  mv "$tmp/Herdr Fleet.app" "$app"
+}
+build_notifier || echo "note: notifier app not built; notifications will use Script Editor's icon" >&2
 for mod in "$HERE"/mods/fleet-*; do
   name=$(basename "$mod")
   mkdir -p "$HOME_DIR/mods/$name"

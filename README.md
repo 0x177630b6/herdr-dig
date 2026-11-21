@@ -68,9 +68,11 @@ terminal) and the machine. In front, the toast already says it, so nothing is ra
 Switch it off in Fleet settings ("Desktop notification when an agent needs you").
 
 - One per question. Questions already waiting when the layout loads are not announced.
-- **macOS**: sent with `osascript` (`display notification`), so it appears under
-  **Script Editor** in System Settings > Notifications: allow it there, and clicking one
-  opens Script Editor, not Herdr.
+- **macOS**: `install.sh` builds a tiny notifier app, "Herdr Fleet", that carries the
+  layout's pixel icon (`mods/fleet-notify/icon.png`); it appears under **Herdr Fleet** in
+  System Settings > Notifications, where macOS may ask you to allow it the first time.
+  Without that app the notification is sent with `osascript` and shows under
+  **Script Editor**, with its icon.
 - **Omarchy** (and other Linux desktops): sent with `notify-send` (libnotify, which Omarchy
   ships with), shown by mako as app "Herdr Fleet". Without `notify-send`, nothing happens.
 - Windows: none.

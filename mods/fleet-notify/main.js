@@ -21,6 +21,7 @@ const tails = new Map();
 const told = new Map();
 const BOOT = Date.now();
 const QUIET = 5000;
+const NOTIFIER = "Herdr Fleet.app";
 
 const cut = (text, max) => {
   const s = String(text ?? "").replace(/\s+/g, " ").trim();
@@ -38,11 +39,16 @@ function desktop(q, text, avatar) {
   const os = window()?.platform;
   if (os === "macos") {
     // argv reaches the script as plain strings: nothing in them is read as AppleScript.
-    return exec("osascript", ["-e", "on run argv", "-e", "display notification (item 2 of argv) with title (item 1 of argv) subtitle (item 3 of argv)", "-e", "end run", "--", title, body, where], { timeout: 10000 }).catch(() => null);
+    const plain = () => exec("osascript", ["-e", "on run argv", "-e", "display notification (item 2 of argv) with title (item 1 of argv) subtitle (item 3 of argv)", "-e", "end run", "--", title, body, where], { timeout: 10000 }).catch(() => null);
+    // The notifier app install.sh builds carries our pixel icon (a notification shows the
+    // icon of the app that posts it). The text goes in its environment, as plain strings.
+    // No app (not built, or removed): the plain notification, under Script Editor's icon.
+    return exec("open", ["-n", "-g", "--env", `FLEET_TITLE=${title}`, "--env", `FLEET_BODY=${body}`, "--env", `FLEET_SUB=${where}`, "-a", `${appHome()}/mods/fleet-notify/${NOTIFIER}`], { timeout: 10000 })
+      .then((r) => (r?.code === 0 ? r : plain()), plain);
   } else if (os === "linux") {
     // No subtitle there: the machine goes in the title. mako reads the body as Pango markup.
     const plain = body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return exec("notify-send", ["--app-name", "Herdr Fleet", ...(avatar ? ["--icon", `${appHome()}/${avatar}`] : []), "--", `${title} [${where}]`, plain], { timeout: 10000 }).catch(() => null);
+    return exec("notify-send", ["--app-name", "Herdr Fleet", "--icon", `${appHome()}/${avatar || "mods/fleet-notify/icon.png"}`, "--", `${title} [${where}]`, plain], { timeout: 10000 }).catch(() => null);
   }
   return null;
 }
