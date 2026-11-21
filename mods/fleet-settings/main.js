@@ -45,6 +45,7 @@ export default class FleetSettings extends View {
         .child(line("Theme", h_flex().id("fs-theme").h(28).px(10).items_center().border(1).border_color(t.border).cursor_pointer()
           .hover((s) => s.bg(t.selected)).on_click(() => toggleTheme()).child(t.light ? "[ light ]" : "[ dark ]")))
         .child(sw("toast", "Question toast"))
+        .child(sw("notify", "Desktop notification when an agent needs you"))
         .child(sw("sound", "Sound when a question arrives"))
         .child(sw("motion", "Motion (carts, toast slide)"))
         .child(sw("builder", "Builder on working panes")))

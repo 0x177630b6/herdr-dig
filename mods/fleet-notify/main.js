@@ -2,16 +2,50 @@
 // props.part "toast": the floating slab, one question at a time, oldest first.
 // props.part "mailbox": the panel under the mailbox button, every pending question.
 // Both stay dark in both themes.
+// The toast copy also raises the desktop notification: once per new question, and only
+// while Herdr is not the window in front (in front, the toast says it).
 
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { props, hc, shared, setShared, closeOverlay, playSound, window, checking } from "herdr";
+import { props, hc, exec, appHome, shared, setShared, closeOverlay, playSound, window, checking } from "herdr";
 import { PIXEL, SLAB, fleet, pref, pick, answer, sprite, agentTag } from "./lib.js";
 
 // Shared by the toast and the mailbox (module code is one per mod): when each question
 // was first seen, and the last lines of a terminal whose agent gave no question text.
 const seen = new Map();
 const tails = new Map();
+// Desktop notifications. `told`: the question last announced for each agent, kept until the
+// agent moves on, so a machine dropping off and coming back does not announce it again.
+// Questions already waiting when the layout loads (or the mod is reloaded) are not news:
+// nothing is announced in the first seconds, while the fleet is still arriving.
+const told = new Map();
+const BOOT = Date.now();
+const QUIET = 5000;
+
+const cut = (text, max) => {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+};
+
+// Herdr has no OS notification of its own for mods (notify() is the in-app toast), so this
+// runs the system's program. Names and questions are not ours: they go as arguments, never
+// inside a script or a shell line. A missing program (no notify-send) is simply no notification.
+function desktop(q, text, avatar) {
+  const a = q.agent;
+  const title = cut(`${a.project} / ${a.name} needs you`, 80);
+  const body = cut(text, 200) || "Waiting on you.";
+  const where = cut(agentTag(a), 40);
+  const os = window()?.platform;
+  if (os === "macos") {
+    // argv reaches the script as plain strings: nothing in them is read as AppleScript.
+    return exec("osascript", ["-e", "on run argv", "-e", "display notification (item 2 of argv) with title (item 1 of argv) subtitle (item 3 of argv)", "-e", "end run", "--", title, body, where], { timeout: 10000 }).catch(() => null);
+  } else if (os === "linux") {
+    // No subtitle there: the machine goes in the title. mako reads the body as Pango markup.
+    const plain = body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return exec("notify-send", ["--app-name", "Herdr Fleet", ...(avatar ? ["--icon", `${appHome()}/${avatar}`] : []), "--", `${title} [${where}]`, plain], { timeout: 10000 }).catch(() => null);
+  }
+  return null;
+}
 
 export default class FleetNotify extends View {
   init(_props, cx) {
@@ -23,6 +57,9 @@ export default class FleetNotify extends View {
     // (a timer started from render itself never redraws).
     this.ticking = true;
     cx.timer.every(120, (cx) => { if (this.key && !this.slid) { this.slid = true; cx.notify(); } });
+    // Nothing is drawn while the window is in the background, but timers go on: this one
+    // is what sees a question arrive there.
+    cx.timer.every(2000, (cx) => { if (!window()?.active) this.queue(cx); });
   }
 
   async close() {
@@ -41,13 +78,32 @@ export default class FleetNotify extends View {
     });
   }
 
+  // A question seen for the first time, announced on the desktop at most once.
+  announce(q, model, cx) {
+    const a = q.agent;
+    if (checking() || props()?.part === "mailbox" || !pref("notify") || window()?.active || Date.now() - BOOT < QUIET || told.get(a.address) === q.key) return;
+    told.set(a.address, q.key);
+    const avatar = model.projects.find((p) => p.id === a.space)?.avatar;
+    cx.spawn(async (cx) => {
+      if (!q.ask) {
+        // No text yet: give the agent's hook time to write its `ask` label (that is a new
+        // question, announced on its own) and the terminal's tail time to be read.
+        await cx.sleep(1500);
+        if (!fleet().questions.some((x) => x.key === q.key)) { if (told.get(a.address) === q.key) told.delete(a.address); return; }
+      }
+      desktop(q, q.ask || tails.get(q.key), avatar);
+    });
+  }
+
   queue(cx) {
-    const list = fleet().questions;
+    const model = fleet();
+    const list = model.questions;
     const now = Date.now();
     const live = new Set(list.map((q) => q.key));
     for (const k of [...seen.keys()]) if (!live.has(k)) { seen.delete(k); tails.delete(k); }
+    for (const a of model.agents) if (!a.offline && a.status !== "blocked") told.delete(a.address);
     for (const q of list) {
-      if (!seen.has(q.key)) seen.set(q.key, now);
+      if (!seen.has(q.key)) { seen.set(q.key, now); this.announce(q, model, cx); }
       this.tail(q, cx);
     }
     return [...list].sort((a, b) => seen.get(a.key) - seen.get(b.key));
@@ -106,7 +162,7 @@ export default class FleetNotify extends View {
   }
 
   render(cx) {
-    // Nothing moves, sounds or reads terminals while the window is in the background.
+    // Not called while the window is in the background: the timer in init covers that.
     return props()?.part === "mailbox" ? this.mailbox(cx) : this.toast(cx);
   }
 }

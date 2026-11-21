@@ -13,7 +13,8 @@ It installs alongside your own layouts, mods and keys. Nothing of yours is chang
   stacked on the right. Sleeping (idle) agents have no pane until you click them.
 - **Home**: "Needs you" cards and a projects × machines grid.
 - **Office**: one cave room per project, the lead at a desk, each worker a miner.
-- **Questions**: a toast and a mailbox for agents that are waiting on you.
+- **Questions**: a toast and a mailbox for agents that are waiting on you, and a desktop
+  notification when Herdr is not the window in front (macOS and Omarchy).
 - **Builder**: while an agent works, a small miner builds something at the bottom right
   of its pane (a tree, a house, a jet…).
 - Dark and light themes, a status bar with your machines, carts on a rail.
@@ -45,7 +46,7 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
 - **Lead and avatar**: right-click an agent, or use Fleet settings. They are plain labels
   on the lead's terminal: `hc label <terminal> role=lead avatar=bolt|dome|mono|tank|cube|twin`.
   Without a label, the only parent of a project's sub-agents is its lead.
-- **Settings**: avatars, theme, question toast, sound, motion, builder.
+- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.
 - **Agents that report no status** (for example Hermes run through a wrapper) are listed
@@ -58,6 +59,23 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
   import subprocess, sys
   sys.exit(subprocess.call(["docker", "exec", "-it", "hermes", "hermes", *sys.argv[1:]]))
   ```
+
+## Desktop notifications
+
+When an agent starts needing you while Herdr is not the active window, the layout raises one
+system notification: "project / agent needs you", the question (or the last lines of its
+terminal) and the machine. In front, the toast already says it, so nothing is raised.
+Switch it off in Fleet settings ("Desktop notification when an agent needs you").
+
+- One per question. Questions already waiting when the layout loads are not announced.
+- **macOS**: sent with `osascript` (`display notification`), so it appears under
+  **Script Editor** in System Settings > Notifications: allow it there, and clicking one
+  opens Script Editor, not Herdr.
+- **Omarchy** (and other Linux desktops): sent with `notify-send` (libnotify, which Omarchy
+  ships with), shown by mako as app "Herdr Fleet". Without `notify-send`, nothing happens.
+- Windows: none.
+- Herdr's own alert (its sound and its corner note, Settings > Alerts) stays inside the
+  window; this adds the part that reaches you outside it. Nothing is sent over the network.
 
 ## Source
 

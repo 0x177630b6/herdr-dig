@@ -62,7 +62,7 @@ export function find(node, id) {
 
 // --- preferences (shared state: every mod sees them, they survive restarts) ---
 
-const PREFS = { avatars: true, toast: true, sound: false, motion: true, builder: true, local: "local" };
+const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, local: "local" };
 export const pref = (key) => shared(`fleet.${key}`) ?? PREFS[key];
 export const setPref = (key, value) => setShared(`fleet.${key}`, value);
 
