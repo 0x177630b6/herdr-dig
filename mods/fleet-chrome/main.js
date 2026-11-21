@@ -70,7 +70,7 @@ export default class FleetChrome extends View {
       .child(ground())
       .child(h_flex().flex_1().px(14).gap(8).items_center().justify_between().text_size(12).text_color(t.muted)
         .child(div().truncate().child("cmd-p go to agent"))
-        .child(h_flex().id("theme-toggle").h(30).px(10).flex_none().items_center().border(1).border_color(t.border).text_color(t.text).cursor_pointer()
+        .child(h_flex().id("theme-toggle").h(22).px(8).flex_none().items_center().border(1).border_color(t.border).text_color(t.text).cursor_pointer()
           .hover((s) => s.bg(t.selected)).on_click(() => toggleTheme()).child(t.light ? "[ dark ]" : "[ light ]")));
   }
 
