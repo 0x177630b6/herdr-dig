@@ -48,7 +48,8 @@ export default class FleetSettings extends View {
         .child(sw("notify", "Desktop notification when an agent needs you"))
         .child(sw("sound", "Sound when a question arrives"))
         .child(sw("motion", "Motion (carts, toast slide)"))
-        .child(sw("builder", "Builder on working panes")))
+        .child(sw("builder", "Builder on working panes"))
+        .child(sw("walker", "Wandering miner (walks the rail, climbs down)")))
       .child(div().font_family(PIXEL).text_size(11).text_color(t.muted).child("PROJECTS"))
       .child(h_flex().id("fs-projects").flex_wrap().items_start().gap(8).max_h(640).overflow_y_scrollbar().children(model.projects.map(project)));
   }

@@ -17,6 +17,8 @@ It installs alongside your own layouts, mods and keys. Nothing of yours is chang
   notification when Herdr is not the window in front (macOS and Omarchy).
 - **Builder**: while an agent works, a small miner builds something at the bottom right
   of its pane (a tree, a house, a jet…).
+- **Wandering miner**: every few minutes a small miner walks in along the rail, stops
+  somewhere and climbs down to the ground. A click on it sends it away.
 - Dark and light themes, a status bar with your machines, carts on a rail.
 
 ## Install
@@ -46,7 +48,7 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
 - **Lead and avatar**: right-click an agent, or use Fleet settings. They are plain labels
   on the lead's terminal: `hc label <terminal> role=lead avatar=bolt|dome|mono|tank|cube|twin`.
   Without a label, the only parent of a project's sub-agents is its lead.
-- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder.
+- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.
 - **Agents that report no status** (for example Hermes run through a wrapper) are listed
@@ -87,6 +89,7 @@ Switch it off in Fleet settings ("Desktop notification when an agent needs you")
   builder's blueprints; add your own there.
 - `src/gen_assets.py <original sprites> <out>` (needs Pillow) made the recoloured robots
   and pre-tiled strips in `mods/fleet-chrome/sprites/`.
+- `src/gen_walker.py <out>` (needs Pillow) draws the wandering miner's sprites (`walker_*`).
 
 ## Remove
 

@@ -58,6 +58,8 @@ export default class FleetTabs extends View {
   command(c) {
     if (c === "home" || c === "office" || c === "crew") setWorkView(c);
     else if (c === "mailbox") this.mailbox();
+    // Calls the wandering miner now (the rail sends it out).
+    else if (c === "walk") setShared("fleet.summon", Date.now());
     else if (c === "sidebar-next") setSidebarMode(MODES[(MODES.indexOf(sidebarMode()) + 1) % MODES.length]);
     else if (c.startsWith("space:")) {
       const p = fleet().projects[Number(c.slice(6)) - 1];
