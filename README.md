@@ -1,6 +1,6 @@
-# herdr-fleet
+# herdr-dig
 
-A pixel-world layout for the Herdr app: one window for a fleet of
+The **herdr-fleet** layout: a pixel-world layout for the Herdr app: one window for a fleet of
 coding agents spread over several machines and projects, with one lead per project.
 
 It installs alongside your own layouts, mods and keys. Nothing of yours is changed.
