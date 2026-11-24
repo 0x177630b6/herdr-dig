@@ -57,7 +57,7 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
   back; a minimised header still shows when someone in it needs you). Right-click a
   project's header to move it up, down, to the top or to the bottom; right-click a worker
   to move it within its project. The order also applies to Home, the Office and ctrl-1…9.
-- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner.
+- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner, Claude usage.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.
 - **Agents that report no status** (for example Hermes run through a wrapper) are listed
@@ -89,6 +89,22 @@ Switch it off in Fleet settings ("Desktop notification when an agent needs you")
 - Windows: none.
 - Herdr's own alert (its sound and its corner note, Settings > Alerts) stays inside the
   window; this adds the part that reaches you outside it. Nothing is sent over the network.
+
+## Claude usage (optional, off by default)
+
+"Claude usage in the sidebar" in Fleet settings adds two lines under the counts: how much
+of your Claude plan's weekly limit is used (a bar, plus the per-model limit) and when the
+week starts again. It is refreshed every 5 minutes while the window is active.
+
+Read this before switching it on: it runs `mods/fleet-status/usage.py`, which reads the
+sign-in Claude Code keeps on this computer (the macOS keychain item "Claude Code-credentials",
+or `~/.claude/.credentials.json`) and sends it to `api.anthropic.com` only, to an endpoint
+Anthropic does not document and may change. The token is never printed, stored or put on a
+command line. It is the one place where the layout uses the network.
+
+Any switch of Fleet settings can also be set from a key or a script:
+`herdr-app do fleet-tabs.set:usage=on` (`avatars`, `toast`, `notify`, `sound`, `motion`,
+`builder`, `walker`, `usage`; `on` or `off`).
 
 ## Source
 

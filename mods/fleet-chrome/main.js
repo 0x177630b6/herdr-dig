@@ -112,7 +112,35 @@ export default class FleetChrome extends View {
         .child(count("blocked", c.blocked, "need you"))
         .child(count("done", c.done, "done"))
         .child(count("working", c.working, "working"))
-        .child(count("idle", c.idle, "idle")));
+        .child(count("idle", c.idle, "idle")))
+      .when(Boolean(pref("usage")), (el) => el.child(this.usage(t)));
+  }
+
+  // The Claude plan's limits (fleet-status asks for them): a bar for the week, the other
+  // limits as numbers, and when the week starts again.
+  usage(t) {
+    const u = shared("fleet.plan");
+    const limits = u?.limits ?? [];
+    const week = limits.find((l) => l.label === "Week") ?? limits[0];
+    const rest = limits.filter((l) => l !== week).slice(0, 2);
+    const hot = (n) => (n >= 90 ? t.orange : t.blue);
+    const cells = Math.max(0, Math.min(10, Math.round((week?.percent ?? 0) / 10)));
+    // To the nearest minute: the time comes a hair short of the hour.
+    const d = week?.resets ? new Date(Math.round(new Date(week.resets).getTime() / 60000) * 60000) : null;
+    const two = (n) => String(n).padStart(2, "0");
+    const when = d && !Number.isNaN(d.getTime())
+      ? `resets ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]} ${d.getDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`
+      : "";
+    return v_flex().h(46).flex_none().px(14).justify_center().gap(4).border_b(1).border_color(t.border).text_size(12).text_color(t.muted)
+      .when(!week, (el) => el.child(div().truncate().child(u ? `Claude usage: ${u.why ?? "nothing to show"}` : "Claude usage: asking…")))
+      .when(Boolean(week), (el) => el
+        .child(h_flex().gap(8).items_center()
+          .child(div().flex_none().font_family(PIXEL).text_size(10).text_color(t.text).child("WEEK"))
+          .child(h_flex().flex_none().gap(1).children([...Array(10).keys()].map((i) => div().w(6).h(10).bg(i < cells ? hot(week.percent) : t.border))))
+          .child(div().flex_none().font_semibold().text_color(t.text).child(`${week.percent}%`))
+          .child(div().flex_1())
+          .children(rest.map((l) => h_flex().flex_none().gap(4).child(l.label).child(div().font_semibold().text_color(l.percent >= 90 ? t.orange : t.text).child(`${l.percent}%`)))))
+        .child(div().truncate().text_size(11).child(u?.ok === false ? `${when} · not refreshed (${u.why})` : when)));
   }
 
   footer(t) {

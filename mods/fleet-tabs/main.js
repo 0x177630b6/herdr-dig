@@ -9,7 +9,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { run, layout, focused, spaces, panes, window, settings, shared, setShared, nextCommand, openOverlay, closeOverlay, checking } from "herdr";
-import { PIXEL, tk, fleet, find, pref, pick, pickProject, agentMenu, syncRoster, workView, setWorkView, sidebarMode, setSidebarMode, pixelButton, projectMark, statusIcon, sprite, addButton, follow } from "./lib.js";
+import { PIXEL, tk, fleet, find, pref, pick, pickProject, agentMenu, syncRoster, workView, setWorkView, sidebarMode, setSidebarMode, pixelButton, projectMark, statusIcon, sprite, addButton, follow, setPref, isSwitch, HEADER } from "./lib.js";
 
 const MODES = ["projects", "machines", "inbox", "office-mini"];
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -60,6 +60,11 @@ export default class FleetTabs extends View {
     else if (c === "mailbox") this.mailbox();
     // Calls the wandering miner now (the rail sends it out).
     else if (c === "walk") setShared("fleet.summon", Date.now());
+    // A switch of Fleet settings from a key or a script: "set:usage=on", "set:walker=off".
+    else if (c.startsWith("set:")) {
+      const [key, value] = c.slice(4).split("=");
+      if (isSwitch(key) && (value === "on" || value === "off")) setPref(key, value === "on");
+    }
     else if (c === "sidebar-next") setSidebarMode(MODES[(MODES.indexOf(sidebarMode()) + 1) % MODES.length]);
     else if (c.startsWith("space:")) {
       const p = fleet().projects[Number(c.slice(6)) - 1];
@@ -120,6 +125,19 @@ export default class FleetTabs extends View {
     return [column("crew-a", workers.slice(0, half), 1), column("crew-b", workers.slice(half), 1)];
   }
 
+  // The sidebar header is taller while it shows the Claude usage lines.
+  fit() {
+    const root = layout(), node = find(root, "sidebar-modes"), now = Date.now();
+    const px = pref("usage") ? HEADER.usage : HEADER.plain;
+    if (!node || node.size?.px === px) return false;
+    if (now - (this.fitted ?? 0) < 1500) return true;
+    this.fitted = now;
+    const next = JSON.parse(JSON.stringify(root));
+    find(next, "sidebar-modes").size = { px };
+    run("layout.set", { layout: next });
+    return true;
+  }
+
   arrange(model) {
     const root = layout(), now = Date.now();
     const node = find(root, "crew");
@@ -174,7 +192,7 @@ export default class FleetTabs extends View {
       }
       syncRoster(model);
       // Still on its way (the layout, or the space of the agent asked for): look again shortly.
-      if (this.arrange(model)) this.again = true;
+      if (this.fit() || this.arrange(model)) this.again = true;
     }
     const p = model.active;
     const f = focused();

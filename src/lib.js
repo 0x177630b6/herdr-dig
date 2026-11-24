@@ -62,7 +62,11 @@ export function find(node, id) {
 
 // --- preferences (shared state: every mod sees them, they survive restarts) ---
 
-const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, local: "local" };
+const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, usage: false, local: "local" };
+// The sidebar header's height: taller when the Claude usage lines are shown under the counts.
+export const HEADER = { plain: 108, usage: 154 };
+// (The switches are the ones that are true or false here.)
+export const isSwitch = (key) => typeof PREFS[key] === "boolean";
 export const pref = (key) => shared(`fleet.${key}`) ?? PREFS[key];
 export const setPref = (key, value) => setShared(`fleet.${key}`, value);
 

@@ -1,10 +1,14 @@
 // The status bar: every machine with its agent count. It also asks `hc machine ls`
 // every 5 s which machines are connected, so a dropped one shows offline everywhere.
+// With "Claude usage" on in Fleet settings it also asks, every 5 minutes, how much of the
+// plan's limits is used (usage.py; the sidebar header shows it).
 
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { hc, shared, setShared, window, checking, knownAgents } from "herdr";
-import { tk, fleet, sprite } from "./lib.js";
+import { hc, exec, appHome, shared, setShared, window, checking, knownAgents } from "herdr";
+import { tk, fleet, pref, sprite } from "./lib.js";
+
+const USAGE_EVERY = 300000;
 
 export default class FleetStatus extends View {
   init(_props, cx) {
@@ -27,6 +31,23 @@ export default class FleetStatus extends View {
     };
     poll(cx);
     cx.timer.every(5000, poll);
+    // Looked at often, asked rarely: switching the setting on shows numbers within seconds.
+    let asking = false;
+    const usage = (cx) => {
+      // In the background only the first answer is fetched: nothing to keep fresh there.
+      if (asking || !pref("usage") || (!window()?.active && shared("fleet.plan"))) return;
+      if (Date.now() - (shared("fleet.plan")?.at ?? 0) < USAGE_EVERY) return;
+      asking = true;
+      cx.spawn(async () => {
+        const r = await exec("python3", ["-I", `${appHome()}/mods/fleet-status/usage.py`], { timeout: 40000 }).catch(() => null);
+        asking = false;
+        let got = null;
+        try { got = JSON.parse(r?.stdout ?? ""); } catch { /* not installed, or no answer */ }
+        setShared("fleet.plan", { at: Date.now(), ok: Boolean(got?.ok), limits: got?.ok ? got.limits : shared("fleet.plan")?.limits ?? [], why: got?.ok ? null : got?.why ?? "no answer" });
+      });
+    };
+    usage(cx);
+    cx.timer.every(5000, usage);
   }
 
   render() {
