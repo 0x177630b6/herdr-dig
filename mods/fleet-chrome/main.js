@@ -131,12 +131,13 @@ export default class FleetChrome extends View {
       ? `resets ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]} ${d.getDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()]}, ${two(d.getHours())}:${two(d.getMinutes())}`
       : "";
     const bar = (l) => {
-      const cells = Math.max(0, Math.min(10, Math.round(l.percent / 10)));
+      // As wide as the sidebar allows: twenty cells of 5% each (never empty once something is used).
+      const cells = Math.max(l.percent > 0 ? 1 : 0, Math.min(20, Math.round(l.percent / 5)));
       const color = l.percent >= 90 ? t.orange : t.blue;
       return h_flex().gap(8).items_center()
         .child(div().w(52).flex_none().truncate().font_family(PIXEL).text_size(10).text_color(t.text).child(l.label.toUpperCase()))
-        .child(h_flex().flex_none().gap(1).children([...Array(10).keys()].map((i) => div().w(6).h(10).bg(i < cells ? color : t.border))))
-        .child(div().flex_none().font_semibold().text_color(t.text).child(`${l.percent}%`));
+        .child(h_flex().flex_1().min_w(0).gap(1).children([...Array(20).keys()].map((i) => div().flex_1().h(10).bg(i < cells ? color : t.border))))
+        .child(div().w(34).flex_none().text_right().font_semibold().text_color(t.text).child(`${l.percent}%`));
     };
     return v_flex().h(64).flex_none().px(14).justify_center().gap(4).border_b(1).border_color(t.border).text_size(12).text_color(t.muted)
       .when(!week, (el) => el.child(div().truncate().child(u ? `Claude usage: ${u.why ?? "nothing to show"}` : "Claude usage: asking…")))
