@@ -53,6 +53,10 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
   crew view, room and colour), the others stay under the space's name. Sub-agents follow
   their parent. It is the `group` label: `hc label <terminal> group=<name>` (`group=none`
   takes a sub-agent out of its parent's group).
+- **Minimise and reorder**: the "−" on a sidebar header hides its agents ("▸" brings them
+  back; a minimised header still shows when someone in it needs you). Right-click a
+  project's header to move it up, down, to the top or to the bottom; right-click a worker
+  to move it within its project. The order also applies to Home, the Office and ctrl-1…9.
 - **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.

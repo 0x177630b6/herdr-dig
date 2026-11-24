@@ -104,6 +104,22 @@ const pending = () => {
   return p && Date.now() - p.at < 3000 ? p : null;
 };
 
+// The person's own order (the "Move" items of the right-click menus): what is listed in
+// `fleet.order` comes first, in that order; the rest keeps its natural order after it.
+const ranked = (list, ids, key) => {
+  if (!ids?.length) return list;
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  return list.map((x, i) => [x, rank.get(key(x)) ?? ids.length + i]).sort((a, b) => a[1] - b[1]).map(([x]) => x);
+};
+// Moves one of `ids` (the order on screen): "up", "down", "top" or "bottom".
+export function move(kind, ids, id, how) {
+  const list = ids.filter((x) => x !== id), i = ids.indexOf(id);
+  if (i < 0) return;
+  const to = how === "top" ? 0 : how === "bottom" ? list.length : Math.max(0, Math.min(list.length, i + (how === "up" ? -1 : 1)));
+  list.splice(to, 0, id);
+  setShared("fleet.order", { ...(shared("fleet.order") ?? {}), [kind]: list });
+}
+
 // A group's name as typed, and the key that tells two groups apart.
 export const groupName = (text) => String(text ?? "").replace(/[#\s]+/g, " ").trim().slice(0, 40);
 const groupKey = (name) => name.toLowerCase();
@@ -248,6 +264,8 @@ export function fleet() {
     if (taken.size === 6) taken.clear();
     p.slot = slot;
   }
+  const sorted = shared("fleet.order") ?? {};
+  projects = ranked(projects, sorted.projects, (p) => p.id);
   for (const p of projects) {
     p.color = t.project[p.slot];
     p.initial = (p.name.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
@@ -257,7 +275,7 @@ export function fleet() {
     const parents = [...new Set(p.agents.map((a) => a.parent).filter((x) => x && inProject.has(x)))];
     p.lead = labelled[0] ?? (parents.length === 1 ? p.agents.find((a) => a.address === parents[0]) : null) ?? null;
     for (const a of p.agents) a.lead = a === p.lead;
-    p.workers = p.agents.filter((a) => !a.lead);
+    p.workers = ranked(p.agents.filter((a) => !a.lead), sorted.agents, (a) => a.address);
     p.agents = p.lead ? [p.lead, ...p.workers] : p.workers;
     p.robot = ROBOTS.includes(p.lead?.labels.avatar) ? p.lead.labels.avatar : ROBOTS[p.slot];
     p.avatar = avatarPath(p.robot, p.slot, t);
@@ -360,6 +378,11 @@ export function answer(q, choice) {
 export function agentMenu(a) {
   if (a.offline) return;
   openOverlay({ mod: "fleet-agents", kind: "popup", width: 232, props: { menu: a.address } });
+}
+
+// The right-click menu of a project's header: its place in the list.
+export function projectMenu(p) {
+  openOverlay({ mod: "fleet-agents", kind: "popup", width: 200, props: { project: p.id } });
 }
 
 // The "+" menu: a new agent or terminal in a project ({ space, machine, title }), or a
