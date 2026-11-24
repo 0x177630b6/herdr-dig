@@ -9,7 +9,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { run, layout, focused, spaces, panes, window, settings, shared, setShared, nextCommand, openOverlay, closeOverlay, checking } from "herdr";
-import { PIXEL, tk, fleet, find, pref, pick, pickProject, agentMenu, syncRoster, workView, setWorkView, sidebarMode, setSidebarMode, pixelButton, projectMark, statusIcon, sprite, addButton } from "./lib.js";
+import { PIXEL, tk, fleet, find, pref, pick, pickProject, agentMenu, syncRoster, workView, setWorkView, sidebarMode, setSidebarMode, pixelButton, projectMark, statusIcon, sprite, addButton, follow } from "./lib.js";
 
 const MODES = ["projects", "machines", "inbox", "office-mini"];
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
@@ -126,7 +126,7 @@ export default class FleetTabs extends View {
     if (!node || workView() !== "crew") return;
     const f = focused();
     let want = shared("fleet.want");
-    if (want && now - want.at > 6000) want = null;
+    if (want && now - want.at > 10000) want = null;
     const p = model.active;
     const must = new Set([want?.address, f?.terminal].filter(Boolean));
     const children = this.crew(p, must, want?.address);
@@ -162,6 +162,16 @@ export default class FleetTabs extends View {
     const model = fleet();
     const view = workView();
     if (!checking()) {
+      // The keyboard went to an agent of another group of this space: show that group.
+      // (Not on a change of space: there the project picked is the one to show.)
+      const fo = focused(), now = fo?.terminal ?? null;
+      if (now !== this.seen) {
+        const same = fo?.space === this.seenSpace;
+        this.seen = now;
+        this.seenSpace = fo?.space ?? null;
+        const a = same && now && model.agents.find((x) => x.address === now);
+        if (a && !a.offline) follow(a);
+      }
       syncRoster(model);
       // Still on its way (the layout, or the space of the agent asked for): look again shortly.
       if (this.arrange(model)) this.again = true;
@@ -205,7 +215,7 @@ export default class FleetTabs extends View {
         (face) => face.on_click(() => setWorkView("crew")).child(projectMark(p, t, 22, 18)).child(div().max_w(160).truncate().font_medium().child(p.name)).child(div().text_color(t.muted).child("crew")))))
       .child(h_flex().id("fleet-tabs-scroll").flex_1().min_w(0).h_full().items_center().overflow_x_scrollbar()
         .children((p?.agents ?? []).map(tab)).children(plain)
-        .when(Boolean(p), (el) => el.child(div().flex_none().pl(6).child(addButton("add-tab", t, { space: p.id, machine: p.machine ?? null, title: p.name })))))
+        .when(Boolean(p), (el) => el.child(div().flex_none().pl(6).child(addButton("add-tab", t, { space: p.space, machine: p.machine ?? null, title: p.name })))))
       // The key hint gives way when the tabs need the room.
       .when((p?.agents.length ?? 0) + plain.length <= 4, (el) => el.child(div().flex_none().text_size(11).text_color(t.muted).child("ctrl-1…9 project · cmd-] next agent")))
       .child(pixelButton("mailbox", t, { active: open, px: 8, color: t.text }, (face) => face.tooltip(`Mailbox, ${pending} question${pending === 1 ? "" : "s"} waiting`)

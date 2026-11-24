@@ -48,6 +48,11 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
 - **Lead and avatar**: right-click an agent, or use Fleet settings. They are plain labels
   on the lead's terminal: `hc label <terminal> role=lead avatar=bolt|dome|mono|tank|cube|twin`.
   Without a label, the only parent of a project's sub-agents is its lead.
+- **Groups**: one space can hold several projects. Right-click an agent, "Group…", pick a
+  group or type a new name: the agents of a group are a project of their own (own lead,
+  crew view, room and colour), the others stay under the space's name. Sub-agents follow
+  their parent. It is the `group` label: `hc label <terminal> group=<name>` (`group=none`
+  takes a sub-agent out of its parent's group).
 - **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.

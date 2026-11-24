@@ -81,7 +81,7 @@ export default class FleetPane extends View {
     const a = model.agents.find((x) => x.address === address);
     const f = focused();
     const on = f?.terminal === address;
-    const p = a && model.projects.find((x) => x.id === a.space);
+    const p = a && model.projects.find((x) => x.id === a.pid);
     let head;
     if (a) {
       head = h_flex()

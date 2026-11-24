@@ -1,11 +1,11 @@
 // The sidebar lists: every agent once, grouped by project, by machine or by status
 // (props.group: "project" | "machine" | "status"). Opened as a popup with
-// props.menu = an agent's address, it is that agent's right-click menu.
+// props.menu = an agent's address, it is that agent's right-click menu (lead, avatar, group).
 
 import { View, div, image } from "gpui-kit";
-import { h_flex, v_flex } from "gpui-base";
+import { h_flex, v_flex, InputState, Input } from "gpui-base";
 import { props, run, focused, closeOverlay, setAgentOrder, knownAgents, checking } from "herdr";
-import { ROBOTS, INK, tk, fleet, pref, pick, pickProject, makeLead, setAvatar, agentMenu, addButton, avatarPath, sidebarMode, workView, setWorkView, statusIcon, projectMark, tag, agentTag } from "./lib.js";
+import { ROBOTS, INK, tk, fleet, pref, pick, pickProject, makeLead, setAvatar, setGroup, groupName, agentMenu, addButton, avatarPath, sidebarMode, workView, setWorkView, statusIcon, projectMark, tag, agentTag } from "./lib.js";
 
 const SECTIONS = [["blocked", "Needs you"], ["done", "Done, to review"], ["working", "Working"], ["idle", "Idle"]];
 const STACK = { project: "projects", machine: "machines", status: "inbox" };
@@ -14,6 +14,12 @@ export default class FleetAgents extends View {
   init(_props, cx) {
     this.picking = false;
     this.kinds = null;
+    this.grouping = false;
+    if (props()?.menu && !checking()) {
+      // The name of a new group; Enter moves the agent into it.
+      this.name = InputState.new({ placeholder: "New group…" });
+      this.name.on("submit", () => this.group(this.name.value()));
+    }
     const add = props()?.add;
     if (!add || checking()) return;
     // The agents installed where the new one will run.
@@ -48,12 +54,18 @@ export default class FleetAgents extends View {
 
   // --- the right-click menu ---
 
+  group(name) {
+    const a = fleet().agents.find((x) => x.address === props().menu);
+    if (a && (groupName(name) || a.group)) setGroup(a, name);
+    closeOverlay(props().overlay);
+  }
+
   menu(t) {
     const model = fleet();
     const a = model.agents.find((x) => x.address === props().menu);
     const done = () => closeOverlay(props().overlay);
     if (!a) return div().p(10).text_color(t.muted).child("This agent is gone.");
-    const p = model.projects.find((x) => x.id === a.space);
+    const p = model.projects.find((x) => x.id === a.pid);
     const item = (id, label, action, dim = false) => h_flex().id(id).h(32).px(10).items_center().text_color(dim ? t.muted : t.text).cursor_pointer()
       .hover((s) => s.bg(t.selected)).on_click(action).child(label);
     if (this.picking) {
@@ -66,12 +78,26 @@ export default class FleetAgents extends View {
           .on_click(() => { setAvatar(p, a, robot); done(); })
           .child(image(avatarPath(robot, p.slot, t)).w(48).h(48)))));
     }
+    if (this.grouping) {
+      // The groups of this agent's space, out of any, or a new one.
+      const groups = model.projects.filter((x) => x.space === a.space && x.group);
+      return v_flex().w_full().p(4).bg(t.chrome).text_size(13)
+        .child(div().px(10).pt(6).pb(4).text_size(11).text_color(t.muted).truncate().child(`Group for ${a.name}`))
+        .children(groups.map((g, i) => item(`m-group-${i}`, `${g.group === a.group ? "● " : "○ "}${g.name}`, () => this.group(g.group))))
+        .child(item("m-group-none", `${a.group ? "○ " : "● "}No group`, () => this.group(""), true))
+        .child(div().mx(8).my(3).h(1).bg(t.border))
+        .when(Boolean(this.name), (el) => el.child(div().id("m-group-new").mx(6).mb(4).h(30).px(8).flex().items_center().border(1).border_color(t.border).bg(t.pane).cursor_text()
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+          .child(Input.new(this.name).h_full().w_full().text_size(13).text_color(t.text))))
+        .child(div().px(10).pb(6).text_size(11).text_color(t.muted).child("Enter to create. Sub-agents follow."));
+    }
     return v_flex().w_full().p(4).bg(t.chrome).text_size(13)
       .child(div().px(10).pt(6).pb(4).text_size(11).text_color(t.muted).truncate().child(`${a.project} / ${a.name}`))
       .child(a.lead && a.labels.role === "lead"
         ? item("m-unlead", "Remove lead", () => { makeLead(p, null); done(); })
         : item("m-lead", "Make lead", () => { makeLead(p, a); done(); }))
       .child(item("m-avatar", "Change avatar…", (_e, cx) => { this.picking = true; cx.notify(); }))
+      .child(item("m-group", a.group ? `Group: ${a.group}…` : "Group…", (_e, cx) => { this.grouping = true; this.name?.focus(); cx.notify(); }))
       .child(item("m-open", "Open", () => { pick(a); done(); }))
       .child(div().mx(8).my(3).h(1).bg(t.border))
       .child(item("m-settings", "Fleet settings…", () => { done(); run("mod.open", { name: "fleet-settings" }); }, true));
@@ -101,7 +127,7 @@ export default class FleetAgents extends View {
     return model.projects.map((p) => ({
       id: `p-${p.id}`, title: p.name, project: p, sub: `${p.agents.length} agent${p.agents.length === 1 ? "" : "s"}`,
       on: p.active && crew, pick: () => pickProject(p), agents: p.agents, chip: (a) => agentTag(a),
-      add: p.agents.some((a) => !a.offline) || p.machine == null ? { space: p.id, machine: p.machine ?? null, title: p.name } : null,
+      add: p.agents.some((a) => !a.offline) || p.machine == null ? { space: p.space, machine: p.machine ?? null, title: p.name } : null,
     }));
   }
 

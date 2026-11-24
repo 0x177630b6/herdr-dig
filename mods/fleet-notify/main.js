@@ -89,7 +89,7 @@ export default class FleetNotify extends View {
     const a = q.agent;
     if (checking() || props()?.part === "mailbox" || !pref("notify") || window()?.active || Date.now() - BOOT < QUIET || told.get(a.address) === q.key) return;
     told.set(a.address, q.key);
-    const avatar = model.projects.find((p) => p.id === a.space)?.avatar;
+    const avatar = model.projects.find((p) => p.id === a.pid)?.avatar;
     cx.spawn(async (cx) => {
       if (!q.ask) {
         // No text yet: give the agent's hook time to write its `ask` label (that is a new

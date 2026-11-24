@@ -104,8 +104,14 @@ const pending = () => {
   return p && Date.now() - p.at < 3000 ? p : null;
 };
 
-// The whole fleet as the mods draw it:
-// { projects: [{ id, name, machine, slot, color, lead, workers, agents, avatar, working }],
+// A group's name as typed, and the key that tells two groups apart.
+export const groupName = (text) => String(text ?? "").replace(/[#\s]+/g, " ").trim().slice(0, 40);
+const groupKey = (name) => name.toLowerCase();
+
+// The whole fleet as the mods draw it. A project is a space, or a group of agents inside
+// one: agents carrying the same `group` label (sub-agents follow their parent) are a project
+// of their own, with its own lead; the others stay in the space's project.
+// { projects: [{ id, space, group, name, machine, slot, color, lead, workers, agents, avatar, working }],
 //   machines: [{ name, label, online, agents }], agents, counts, questions }
 export function fleet() {
   const t = tk();
@@ -142,7 +148,8 @@ export function fleet() {
     return machineByName.get(name);
   };
 
-  const projects = all.map((s) => ({ id: s.id, name: s.name, machine: s.machine, active: s.active, agents: [] }));
+  const bases = all.map((s) => ({ id: s.id, space: s.id, group: null, name: s.name, machine: s.machine, shown: s.active, active: false, agents: [] }));
+  let projects = bases;
   const projectById = new Map(projects.map((p) => [p.id, p]));
   const list = [];
   const kinds = new Set(shared("fleet.kinds") ?? []);
@@ -180,7 +187,7 @@ export function fleet() {
       if (have.has(r.address)) continue;
       let project = projectById.get(r.space);
       if (!project) {
-        project = { id: r.space, name: r.project, machine: m.name, active: false, agents: [] };
+        project = { id: r.space, space: r.space, group: null, name: r.space_name ?? r.project, machine: m.name, shown: false, active: false, agents: [] };
         projects.push(project);
         projectById.set(r.space, project);
       }
@@ -188,11 +195,48 @@ export function fleet() {
     }
   }
 
+  // Groups. An agent's group: its own label, else its parent's (in the same space).
+  const inList = new Map(list.map((a) => [a.address, a]));
+  const groupOf = (a, depth = 0) => {
+    const own = groupName(a.labels.group);
+    // "none": out of every group, whatever its parent is in.
+    if (own) return own.toLowerCase() === "none" ? "" : own;
+    const parent = a.parent && depth < 8 ? inList.get(a.parent) : null;
+    return parent && parent.space === a.space ? groupOf(parent, depth + 1) : "";
+  };
+  const grouped = new Map();
   const asks = [];
   for (const a of list) {
-    const p = projectById.get(a.space);
+    const base = projectById.get(a.space);
+    a.group = groupOf(a);
+    let p = base;
+    if (a.group) {
+      const id = `${a.space}#${groupKey(a.group)}`;
+      p = projectById.get(id);
+      if (!p) {
+        p = { id, space: a.space, group: a.group, name: a.group, machine: base.machine, shown: base.shown, active: false, agents: [] };
+        projectById.set(id, p);
+        grouped.set(a.space, [...(grouped.get(a.space) ?? []), p]);
+      }
+    }
+    a.pid = p.id;
+    a.project = p.name;
     p.agents.push(a);
     machineFor(a.machine).agents.push(a);
+  }
+  // A space's groups come first, by name; then the space itself, unless nobody is left in it.
+  projects = projects.flatMap((base) => {
+    const groups = (grouped.get(base.id) ?? []).sort((a, b) => a.name.localeCompare(b.name));
+    return groups.length && !base.agents.length ? groups : [...groups, base];
+  });
+  // One project of the shown space is the one on screen: the one picked last, else the
+  // focused agent's, else the space's own.
+  const at = shared("fleet.at") ?? {};
+  for (const base of bases) {
+    if (!base.shown) continue;
+    const mine = projects.filter((p) => p.space === base.id);
+    const on = mine.find((p) => p.id === at[base.id]) ?? mine.find((p) => p.agents.some((a) => a.focused)) ?? mine.find((p) => p.id === base.id) ?? mine[0];
+    if (on) on.active = true;
   }
   // Colour and robot slot: the name's hash; two projects landing on one slot are told
   // apart in name order by the next free one (the same on every machine showing this fleet).
@@ -249,17 +293,30 @@ function question(a) {
 
 // Shows an agent: its project's crew, its pane focused. fleet-tabs finishes the focus
 // once the crew is on screen.
+// Which of a space's projects is on screen (a space with groups holds several).
+function showProject(space, id) {
+  const at = shared("fleet.at") ?? {};
+  if (at[space] !== id) setShared("fleet.at", { ...at, [space]: id });
+}
 export function pick(a) {
   if (a.offline) return;
+  showProject(a.space, a.pid);
   setShared("fleet.want", { address: a.address, at: Date.now() });
   setWorkView("crew");
   run("space.select", { id: a.space });
 }
 export function pickProject(p) {
-  setShared("fleet.want", { address: null, at: Date.now() });
+  showProject(p.space, p.id);
+  // One group of several in its space: the keyboard may be on an agent of another group,
+  // whose pane is not shown. It goes to this group's lead (else its first agent awake).
+  const shared_space = !p.agents.some((a) => a.focused) && fleet().projects.some((x) => x.space === p.space && x.id !== p.id);
+  const to = shared_space ? p.lead ?? p.agents.find((a) => !a.offline && a.status !== "idle") ?? p.agents.find((a) => !a.offline) : null;
+  setShared("fleet.want", { address: to && !to.offline ? to.address : null, at: Date.now() });
   setWorkView("crew");
-  run("space.select", { id: p.id });
+  run("space.select", { id: p.space });
 }
+// The keyboard moved to an agent by other means (a key, a click in a pane): its project follows.
+export const follow = (a) => showProject(a.space, a.pid);
 
 function writeLabels(changes) {
   const labels = { ...(pending()?.labels ?? {}) };
@@ -283,6 +340,14 @@ export function setAvatar(p, a, robot) {
   if (target === p.lead && target.labels.role !== "lead") changes[target.address].role = "lead";
   writeLabels(changes);
 }
+// Moves an agent to a group of its space ("" takes it out). Its sub-agents follow it, unless
+// they carry a group of their own.
+export function setGroup(a, name) {
+  const group = groupName(name);
+  // "none" is written for a sub-agent whose parent is grouped: an empty label would inherit.
+  writeLabels({ [a.address]: { group: group || (a.parent ? "none" : "") } });
+  showProject(a.space, group ? `${a.space}#${groupKey(group)}` : a.space);
+}
 // Answers a question in the agent's terminal and clears it.
 export function answer(q, choice) {
   const a = q.agent;
@@ -291,10 +356,10 @@ export function answer(q, choice) {
   writeLabels({ [a.address]: { ask: "", choices: "" } });
 }
 
-// The right-click menu of an agent: Make lead, Change avatar, Open (fleet-agents draws it).
+// The right-click menu of an agent: Make lead, Change avatar, Group, Open (fleet-agents draws it).
 export function agentMenu(a) {
   if (a.offline) return;
-  openOverlay({ mod: "fleet-agents", kind: "popup", width: 232, height: 196, props: { menu: a.address } });
+  openOverlay({ mod: "fleet-agents", kind: "popup", width: 232, props: { menu: a.address } });
 }
 
 // The "+" menu: a new agent or terminal in a project ({ space, machine, title }), or a
@@ -316,7 +381,7 @@ export function syncRoster(model) {
   const next = { ...old };
   for (const m of model.machines) {
     if (m.name === null || !m.online) continue;
-    next[m.name] = m.agents.filter((a) => !a.offline).map((a) => ({ address: a.address, name: a.name, space: a.space, project: a.project, labels: { role: a.labels.role, avatar: a.labels.avatar } }));
+    next[m.name] = m.agents.filter((a) => !a.offline).map((a) => ({ address: a.address, name: a.name, space: a.space, project: a.project, space_name: model.projects.find((p) => p.id === a.space)?.name, labels: { role: a.labels.role, avatar: a.labels.avatar, group: a.group } }));
   }
   if (JSON.stringify(next) !== JSON.stringify(old)) setShared("fleet.roster", next);
 }
