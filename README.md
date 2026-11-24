@@ -93,8 +93,8 @@ Switch it off in Fleet settings ("Desktop notification when an agent needs you")
 ## Claude usage (optional, off by default)
 
 "Claude usage in the sidebar" in Fleet settings adds two lines under the counts: how much
-of your Claude plan's weekly limit is used (a bar, plus the per-model limit) and when the
-week starts again. It is refreshed every 5 minutes while the window is active.
+of your Claude plan's weekly limit is used (one bar for the week, one for the per-model
+limit) and when the week starts again. It is refreshed every 5 minutes while the window is active.
 
 Read this before switching it on: it runs `mods/fleet-status/usage.py`, which reads the
 sign-in Claude Code keeps on this computer (the macOS keychain item "Claude Code-credentials",
