@@ -14,6 +14,7 @@
     "ctrl-7": "fleet-tabs.space:7",
     "ctrl-8": "fleet-tabs.space:8",
     "ctrl-9": "fleet-tabs.space:9",
-    "cmd-shift-,": "mod.open:fleet-settings"
+    "cmd-shift-,": "mod.open:fleet-settings",
+    "cmd-shift-u": "fleet-tabs.unread"
   }
 }

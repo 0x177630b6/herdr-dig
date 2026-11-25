@@ -110,7 +110,7 @@ export default class FleetChrome extends View {
           (face) => face.w_full().font_family(PIXEL).text_size(10).on_click(() => setSidebarMode(id)).child(label)))))
       .child(h_flex().flex_1().flex_wrap().gap_x(10).gap_y(2).px(14).pb(6).items_center().text_size(12).text_color(t.muted).border_b(1).border_color(t.border).overflow_hidden()
         .child(count("blocked", c.blocked, "need you"))
-        .child(count("done", c.done, "done"))
+        .child(count("done", c.done, "unread"))
         .child(count("working", c.working, "working"))
         .child(count("idle", c.idle, "idle")))
       .when(Boolean(pref("usage")), (el) => el.child(this.usage(t)));

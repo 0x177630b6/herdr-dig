@@ -62,7 +62,8 @@ export function find(node, id) {
 
 // --- preferences (shared state: every mod sees them, they survive restarts) ---
 
-const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, usage: false, local: "local" };
+const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, usage: false, retire: false, rest: 12, local: "local" };
+// `rest`: hours a worker stays idle before it goes under "Resting" (0: never).
 // The sidebar header's height: taller when the Claude usage lines are shown under the counts.
 export const HEADER = { plain: 108, usage: 172 };
 // (The switches are the ones that are true or false here.)
@@ -80,7 +81,8 @@ export const setWorkView = (view) => { if (workView() !== view) run("layout.sele
 export const STATUS = {
   working: { label: "working", icon: "i_work.gif", miner: "miner_working.gif", role: "blue" },
   blocked: { label: "needs you", icon: "i_block.gif", miner: "miner_blocked.gif", role: "orange" },
-  done: { label: "done", icon: "i_done.gif", miner: "miner_done.gif", role: "text" },
+  // Herdr's "done": it finished while you weren't looking. Looking at it makes it idle.
+  done: { label: "unread", icon: "i_done.gif", miner: "miner_done.gif", role: "text" },
   // Sleeping is drawn still: only what is happening moves.
   idle: { label: "idle", icon: "i_idle_still.png", miner: "miner_idle_still.png", role: "idle" },
 };
@@ -196,7 +198,7 @@ export function fleet() {
       name: renamed || x.name || (tab?.named && tab.name !== x.program?.name ? tab.name : null) || (telling ? title : null) || x.program?.name || x.address,
       status: word(a ? a.status : x.status === "done" ? "idle" : x.status),
       pane: a?.pane ?? null, tab: a?.tab ?? (labels["herdr.tab"] ? (machine ? `${machine}/` : "") + labels["herdr.tab"] : null), parent: x.parent ?? null, labels,
-      report: x.report ?? null, focused: Boolean(a?.focused), offline: false,
+      report: x.report ?? null, focused: Boolean(a?.focused), offline: false, since: x.status_ms ?? null,
     });
   }
 
@@ -272,6 +274,10 @@ export function fleet() {
     p.slot = slot;
   }
   const sorted = shared("fleet.order") ?? {};
+  // Resting: a worker idle (finished, and read) for longer than the `rest` setting. It goes
+  // after the others; the one with the keyboard is never resting.
+  const restMs = Number(pref("rest")) * 3600000, now = Date.now();
+  const resting = (a) => restMs > 0 && !a.lead && !a.offline && !a.focused && a.status === "idle" && a.since !== null && now - a.since > restMs;
   projects = ranked(projects, sorted.projects, (p) => p.id);
   for (const p of projects) {
     p.color = t.project[p.slot];
@@ -283,6 +289,9 @@ export function fleet() {
     p.lead = labelled[0] ?? (parents.length === 1 ? p.agents.find((a) => a.address === parents[0]) : null) ?? null;
     for (const a of p.agents) a.lead = a === p.lead;
     p.workers = ranked(p.agents.filter((a) => !a.lead), sorted.agents, (a) => a.address);
+    for (const a of p.agents) a.resting = resting(a);
+    p.resting = p.workers.filter((a) => a.resting);
+    p.workers = [...p.workers.filter((a) => !a.resting), ...p.resting];
     p.agents = p.lead ? [p.lead, ...p.workers] : p.workers;
     p.robot = ROBOTS.includes(p.lead?.labels.avatar) ? p.lead.labels.avatar : ROBOTS[p.slot];
     p.avatar = avatarPath(p.robot, p.slot, t);
@@ -290,6 +299,7 @@ export function fleet() {
     p.working = p.agents.filter((a) => a.status === "working" && !a.offline).length;
     for (const a of p.agents) {
       a.slot = p.slot;
+      a.unread = a.status === "done" && !a.offline;
       a.avatar = !a.lead && ROBOTS.includes(a.labels.avatar) ? avatarPath(a.labels.avatar, p.slot, t) : null;
       if (a.status === "blocked" && !a.offline) asks.push(question(a));
     }
@@ -373,6 +383,19 @@ export function setGroup(a, name) {
   writeLabels({ [a.address]: { group: group || (a.parent ? "none" : "") } });
   showProject(a.space, group ? `${a.space}#${groupKey(group)}` : a.space);
 }
+// Ends an agent: its terminal, and its sub-agents with it (the menus ask first).
+export function endAgent(a) {
+  if (a.offline || a.lead) return;
+  run("terminal.kill", { terminal: a.address });
+}
+// The live sub-agents that end with it.
+export const helpersOf = (a, model) => model.agents.filter((x) => x.parent === a.address && !x.offline);
+// How long ago, short: "40m", "19h", "3d".
+export function ago(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
+}
+
 // Answers a question in the agent's terminal and clears it.
 export function answer(q, choice) {
   const a = q.agent;

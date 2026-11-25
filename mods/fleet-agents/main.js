@@ -1,13 +1,14 @@
 // The sidebar lists: every agent once, grouped by project, by machine or by status
 // (props.group: "project" | "machine" | "status"). Opened as a popup with
-// props.menu = an agent's address, it is that agent's right-click menu (lead, avatar, group).
+// props.menu = an agent's address, it is that agent's right-click menu (lead, avatar, group, end).
+// Workers resting (idle for long, see `rest`) sit folded at the bottom of their project.
 
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input } from "gpui-base";
 import { props, run, focused, closeOverlay, setAgentOrder, knownAgents, shared, setShared, checking } from "herdr";
-import { ROBOTS, INK, tk, fleet, pref, pick, pickProject, makeLead, setAvatar, setGroup, groupName, move, agentMenu, projectMenu, addButton, avatarPath, sidebarMode, workView, setWorkView, statusIcon, projectMark, tag, agentTag } from "./lib.js";
+import { ROBOTS, INK, tk, fleet, pref, pick, endAgent, helpersOf, ago, pickProject, makeLead, setAvatar, setGroup, groupName, move, agentMenu, projectMenu, addButton, avatarPath, sidebarMode, workView, setWorkView, statusIcon, projectMark, tag, agentTag } from "./lib.js";
 
-const SECTIONS = [["blocked", "Needs you"], ["done", "Done, to review"], ["working", "Working"], ["idle", "Idle"]];
+const SECTIONS = [["blocked", "Needs you"], ["done", "Unread"], ["working", "Working"], ["idle", "Idle"]];
 const STACK = { project: "projects", machine: "machines", status: "inbox" };
 
 export default class FleetAgents extends View {
@@ -15,6 +16,7 @@ export default class FleetAgents extends View {
     this.picking = false;
     this.kinds = null;
     this.grouping = false;
+    this.ending = false;
     if (props()?.menu && !checking()) {
       // The name of a new group; Enter moves the agent into it.
       this.name = InputState.new({ placeholder: "New group…" });
@@ -52,6 +54,19 @@ export default class FleetAgents extends View {
       .child(item("add-shell", "Terminal", start(null)));
   }
 
+  // "End …?": nothing ends before this second click. `list`: the agents that end.
+  confirm(t, title, list, model, action) {
+    const done = () => closeOverlay(props().overlay);
+    const helpers = list.flatMap((a) => helpersOf(a, model)).filter((h) => !list.includes(h));
+    const names = list.slice(0, 8).map((a) => a.name).join(", ") + (list.length > 8 ? ` and ${list.length - 8} more` : "");
+    const button = (id, label, strong, click) => h_flex().id(id).h(30).px(12).items_center().border(1).cursor_pointer()
+      .border_color(strong ? t.orange : t.border).text_color(strong ? t.orangeText : t.text).hover((s) => s.bg(t.selected)).on_click(click).child(label);
+    return v_flex().w_full().p(10).gap(8).bg(t.chrome).text_size(13).text_color(t.text)
+      .child(div().font_semibold().child(title))
+      .child(div().text_size(12).text_color(t.muted).child(`${names}. ${helpers.length ? `Their ${helpers.length} sub-agent${helpers.length === 1 ? "" : "s"} end too. ` : ""}The terminal closes; its conversation can't be continued here.`))
+      .child(h_flex().gap(8).child(button("end-yes", "End", true, () => { action(); done(); })).child(button("end-no", "Cancel", false, () => done())));
+  }
+
   // --- a project's right-click menu: its place in the list ---
 
   place(t) {
@@ -59,6 +74,7 @@ export default class FleetAgents extends View {
     const p = model.projects.find((x) => x.id === props().project);
     const done = () => closeOverlay(props().overlay);
     if (!p) return div().p(10).text_color(t.muted).child("This project is gone.");
+    if (this.ending) return this.confirm(t, `End ${p.resting.length} resting worker${p.resting.length === 1 ? "" : "s"} of ${p.name}?`, p.resting, model, () => p.resting.forEach(endAgent));
     const ids = model.projects.map((x) => x.id), i = ids.indexOf(p.id);
     // Up and down keep the menu open: one click per step.
     const item = (id, label, how, off) => h_flex().id(id).h(32).px(10).items_center().text_color(off ? t.muted : t.text)
@@ -69,7 +85,10 @@ export default class FleetAgents extends View {
       .child(item("p-top", "Move to top", "top", i === 0))
       .child(item("p-up", "Move up", "up", i === 0))
       .child(item("p-down", "Move down", "down", i === ids.length - 1))
-      .child(item("p-bottom", "Move to bottom", "bottom", i === ids.length - 1));
+      .child(item("p-bottom", "Move to bottom", "bottom", i === ids.length - 1))
+      .when(Boolean(pref("retire")) && p.resting.length > 0, (el) => el.child(div().mx(8).my(3).h(1).bg(t.border))
+        .child(h_flex().id("p-end").h(32).px(10).items_center().text_color(t.orangeText).cursor_pointer().hover((s) => s.bg(t.selected))
+          .on_click((_e, cx) => { this.ending = true; cx.notify(); }).child(`End resting workers (${p.resting.length})…`)));
   }
 
   // --- the right-click menu ---
@@ -98,6 +117,7 @@ export default class FleetAgents extends View {
           .on_click(() => { setAvatar(p, a, robot); done(); })
           .child(image(avatarPath(robot, p.slot, t)).w(48).h(48)))));
     }
+    if (this.ending) return this.confirm(t, `End ${a.name}?`, [a], model, () => endAgent(a));
     if (this.grouping) {
       // The groups of this agent's space, out of any, or a new one.
       const groups = model.projects.filter((x) => x.space === a.space && x.group);
@@ -125,6 +145,9 @@ export default class FleetAgents extends View {
           .child(item("m-down", "Move down", () => move("agents", ids, a.address, "down"), i === ids.length - 1));
       })
       .child(item("m-open", "Open", () => { pick(a); done(); }))
+      // Never the lead, never while it works: ending is for finished workers.
+      .when(Boolean(pref("retire")) && !a.lead && a.status !== "working", (el) => el.child(h_flex().id("m-end").h(32).px(10).items_center().text_color(t.orangeText).cursor_pointer()
+        .hover((s) => s.bg(t.selected)).on_click((_e, cx) => { this.ending = true; cx.notify(); }).child("End agent…")))
       .child(div().mx(8).my(3).h(1).bg(t.border))
       .child(item("m-settings", "Fleet settings…", () => { done(); run("mod.open", { name: "fleet-settings" }); }, true));
   }
@@ -152,7 +175,7 @@ export default class FleetAgents extends View {
     const crew = workView() === "crew";
     return model.projects.map((p) => ({
       id: `p-${p.id}`, title: p.name, project: p, sub: `${p.agents.length} agent${p.agents.length === 1 ? "" : "s"}`,
-      on: p.active && crew, pick: () => pickProject(p), agents: p.agents, chip: (a) => agentTag(a),
+      on: p.active && crew, rest: true, pick: () => pickProject(p), agents: p.agents, chip: (a) => agentTag(a),
       add: p.agents.some((a) => !a.offline) || p.machine == null ? { space: p.space, machine: p.machine ?? null, title: p.name } : null,
     }));
   }
@@ -186,6 +209,7 @@ export default class FleetAgents extends View {
       .child(div().flex_1().min_w(0).truncate().font_semibold().text_color(t.text).child(g.title))
       // Minimised, the header still says when someone in it needs you.
       .when(Boolean(folded[g.id]) && g.agents.some((a) => a.status === "blocked" && !a.offline), (el) => el.child(statusIcon("blocked")))
+      .when(Boolean(folded[g.id]) && g.agents.some((a) => a.unread), (el) => el.child(statusIcon("done")))
       .child(div().flex_none().text_size(12).text_color(t.muted).child(g.sub))
       .when(g.agents.length > 0, (el) => el.child(folded[g.id]
         ? small(`fold-${g.id}`, "▸", `Show the agents of ${g.title}`, () => fold(g))
@@ -199,14 +223,32 @@ export default class FleetAgents extends View {
       .on_click(() => pick(a))
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); agentMenu(a); })
       .child(statusIcon(a.status))
-      .child(div().min_w(0).truncate().text_color(t.text).when(a.lead, (el) => el.font_semibold()).child(a.name))
+      .child(div().min_w(0).truncate().text_color(a.resting ? t.muted : t.text).when(a.lead || a.unread, (el) => el.font_semibold()).child(a.name))
       .when(a.lead, (el) => el.child(div().flex_none().text_size(11).text_color(t.muted).child("lead")))
+      // Unread: finished while you weren't looking.
+      .when(Boolean(a.unread), (el) => el.child(div().flex_none().size(6).bg(t.blue).tooltip("Unread")))
       .child(div().flex_1())
-      .child(tag(g.chip(a), t.muted).max_w(130).truncate());
+      .child(tag(g.rest && a.resting ? `idle ${ago(a.since)}` : g.chip(a), t.muted).max_w(130).truncate());
+
+    // The resting workers of a project: one line, folded until opened.
+    const restKey = (g) => `r-${g.id}`;
+    const restOpen = (g) => folded[restKey(g)] === false;
+    const restLine = (g) => h_flex().id(`rest-${g.id}`).h(28).pl(36).pr(8).gap(8).flex_none().items_center().cursor_pointer().text_size(12).text_color(t.muted)
+      .hover((s) => s.bg(t.selected))
+      .on_click(() => { const next = { ...folded }; if (restOpen(g)) delete next[restKey(g)]; else next[restKey(g)] = false; setShared("fleet.folded", next); })
+      .child(div().flex_none().child(restOpen(g) ? "▾" : "▸"))
+      .child(div().flex_1().min_w(0).truncate().child(`Resting · ${g.project.resting.length}`))
+      .child(div().flex_none().child(`idle ${pref("rest")}h+`));
+    const body = (g) => {
+      if (folded[g.id]) return [];
+      if (!g.rest || !g.project.resting.length) return g.agents.map((a) => row(g, a));
+      const awake = g.agents.filter((a) => !a.resting);
+      return [...awake.map((a) => row(g, a)), restLine(g), ...(restOpen(g) ? g.project.resting.map((a) => row(g, a)) : [])];
+    };
 
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
       .when(model.agents.length === 0, (el) => el.child(div().p(14).text_size(12).text_color(t.muted).child("No agents yet. They show up here once they report a status.")))
       .child(v_flex().id(`fleet-list-${props()?.group ?? "project"}`).flex_1().min_h(0).px(8).pt(8).pb(12).gap(10).overflow_y_scrollbar()
-        .children(groups.map((g) => v_flex().flex_none().gap(1).child(header(g)).children(folded[g.id] ? [] : g.agents.map((a) => row(g, a))))));
+        .children(groups.map((g) => v_flex().flex_none().gap(1).child(header(g)).children(body(g)))));
   }
 }

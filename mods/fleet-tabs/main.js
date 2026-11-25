@@ -65,6 +65,12 @@ export default class FleetTabs extends View {
       const [key, value] = c.slice(4).split("=");
       if (isSwitch(key) && (value === "on" || value === "off")) setPref(key, value === "on");
     }
+    // The next agent that finished while you weren't looking, in the sidebar's order.
+    else if (c === "unread") {
+      const list = fleet().agents, at = list.findIndex((a) => a.address === focused()?.terminal);
+      const next = [...list.slice(at + 1), ...list.slice(0, at + 1)].find((a) => a.unread);
+      if (next) pick(next);
+    }
     else if (c === "sidebar-next") setSidebarMode(MODES[(MODES.indexOf(sidebarMode()) + 1) % MODES.length]);
     else if (c.startsWith("space:")) {
       const p = fleet().projects[Number(c.slice(6)) - 1];
@@ -232,7 +238,11 @@ export default class FleetTabs extends View {
       .when(Boolean(p), (el) => el.child(pixelButton("go-crew", t, { active: view === "crew", on: t.selected, onInk: t.text, px: 8 },
         (face) => face.on_click(() => setWorkView("crew")).child(projectMark(p, t, 22, 18)).child(div().max_w(160).truncate().font_medium().child(p.name)).child(div().text_color(t.muted).child("crew")))))
       .child(h_flex().id("fleet-tabs-scroll").flex_1().min_w(0).h_full().items_center().overflow_x_scrollbar()
-        .children((p?.agents ?? []).map(tab)).children(plain)
+        // Resting workers keep to the sidebar; the one with the keyboard is never resting.
+        .children((p?.agents ?? []).filter((a) => !a.resting).map(tab))
+        .when((p?.resting.length ?? 0) > 0, (el) => el.child(div().id("tabs-resting").flex_none().px(8).text_size(12).text_color(t.muted)
+          .tooltip("Idle for long: in the sidebar, under Resting").child(`+${p.resting.length} resting`)))
+        .children(plain)
         .when(Boolean(p), (el) => el.child(div().flex_none().pl(6).child(addButton("add-tab", t, { space: p.space, machine: p.machine ?? null, title: p.name })))))
       // The key hint gives way when the tabs need the room.
       .when((p?.agents.length ?? 0) + plain.length <= 4, (el) => el.child(div().flex_none().text_size(11).text_color(t.muted).child("ctrl-1…9 project · cmd-] next agent")))

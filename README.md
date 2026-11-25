@@ -41,6 +41,7 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
 | --- | --- |
 | cmd-shift-h / o / k | Home / Office / crew view |
 | cmd-shift-m | Mailbox |
+| cmd-shift-u | Next unread agent |
 | cmd-alt-l | Next sidebar mode |
 | ctrl-1…9 | Project 1…9 |
 | cmd-shift-, | Fleet settings (also: click the HERDR FLEET plate) |
@@ -57,7 +58,17 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
   back; a minimised header still shows when someone in it needs you). Right-click a
   project's header to move it up, down, to the top or to the bottom; right-click a worker
   to move it within its project. The order also applies to Home, the Office and ctrl-1…9.
-- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner, Claude usage.
+- **Unread**: an agent that finished while you weren't looking is "unread" (Herdr's own
+  "done"): bold in the sidebar with a blue dot, counted at the top, and cmd-shift-u goes to
+  the next one. Looking at it makes it idle.
+- **Resting**: a worker idle for longer than 12 hours (Fleet settings: 6, 12, 24, 48 hours or
+  never) moves under a folded "Resting" line at the bottom of its project, with how long it
+  has been idle, and leaves the top bar. The lead never rests.
+- **End agent** (off by default, Fleet settings): adds "End agent…" to a finished worker's
+  right-click menu and "End resting workers…" to a project's. Both ask first and list who
+  ends, sub-agents included; the lead and working agents are never offered. It ends their
+  terminals (`terminal.kill`), so the conversation can't be continued in Herdr.
+- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner, Claude usage, resting time, end agent.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.
 - **Agents that report no status** (for example Hermes run through a wrapper) are listed
@@ -104,7 +115,7 @@ command line. It is the one place where the layout uses the network.
 
 Any switch of Fleet settings can also be set from a key or a script:
 `herdr-app do fleet-tabs.set:usage=on` (`avatars`, `toast`, `notify`, `sound`, `motion`,
-`builder`, `walker`, `usage`; `on` or `off`).
+`builder`, `walker`, `usage`, `retire`; `on` or `off`).
 
 ## Source
 
