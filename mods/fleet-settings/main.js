@@ -50,6 +50,7 @@ export default class FleetSettings extends View {
         .child(sw("motion", "Motion (carts, toast slide)"))
         .child(sw("builder", "Builder on working panes"))
         .child(sw("walker", "Wandering miner (walks the rail, climbs down)"))
+        .child(sw("workshop", "Workshop over the crew (workers walk to their desk when they start)"))
         .child(sw("usage", "Claude usage in the sidebar (reads your Claude Code sign-in, asks api.anthropic.com)"))
         .child(line("Workers go under Resting after idle for", h_flex().gap(4).children([0, 6, 12, 24, 48].map((h) => chip(`rest-${h}`, h ? `${h}h` : "never", Number(pref("rest")) === h, () => setPref("rest", h))))))
         .child(sw("retire", "\"End agent\" in the right-click menus (asks first; never the lead)")))

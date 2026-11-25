@@ -62,7 +62,7 @@ export function find(node, id) {
 
 // --- preferences (shared state: every mod sees them, they survive restarts) ---
 
-const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, usage: false, retire: false, rest: 12, local: "local" };
+const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, workshop: true, usage: false, retire: false, rest: 12, local: "local" };
 // `rest`: hours a worker stays idle before it goes under "Resting" (0: never).
 // The sidebar header's height: taller when the Claude usage lines are shown under the counts.
 export const HEADER = { plain: 108, usage: 172 };
@@ -129,6 +129,9 @@ export function move(kind, ids, id, how) {
 // A group's name as typed, and the key that tells two groups apart.
 export const groupName = (text) => String(text ?? "").replace(/[#\s]+/g, " ").trim().slice(0, 40);
 const groupKey = (name) => name.toLowerCase();
+
+// Each agent's status as this mod last saw it, and since when (null: since before it looked).
+const observed = new Map();
 
 // The whole fleet as the mods draw it. A project is a space, or a group of agents inside
 // one: agents carrying the same `group` label (sub-agents follow their parent) are a project
@@ -200,6 +203,18 @@ export function fleet() {
       pane: a?.pane ?? null, tab: a?.tab ?? (labels["herdr.tab"] ? (machine ? `${machine}/` : "") + labels["herdr.tab"] : null), parent: x.parent ?? null, labels,
       report: x.report ?? null, focused: Boolean(a?.focused), offline: false, since: x.status_ms ?? null,
     });
+  }
+
+  // Since when each one is in its status: the core's time says when the core's own status
+  // last changed, which can be long before the app saw it start or stop working; a change
+  // seen here wins.
+  const now = Date.now();
+  for (const a of list) {
+    const was = observed.get(a.address);
+    if (!was) observed.set(a.address, { status: a.status, at: null });
+    else if (was.status !== a.status) observed.set(a.address, { status: a.status, at: now });
+    const at = observed.get(a.address).at;
+    if (at) a.since = at;
   }
 
   // Agents of a machine that went away: the last roster, never shown as idle.
@@ -276,7 +291,7 @@ export function fleet() {
   const sorted = shared("fleet.order") ?? {};
   // Resting: a worker idle (finished, and read) for longer than the `rest` setting. It goes
   // after the others; the one with the keyboard is never resting.
-  const restMs = Number(pref("rest")) * 3600000, now = Date.now();
+  const restMs = Number(pref("rest")) * 3600000;
   const resting = (a) => restMs > 0 && !a.lead && !a.offline && !a.focused && a.status === "idle" && a.since !== null && now - a.since > restMs;
   projects = ranked(projects, sorted.projects, (p) => p.id);
   for (const p of projects) {

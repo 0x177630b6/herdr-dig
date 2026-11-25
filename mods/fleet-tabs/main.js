@@ -16,6 +16,7 @@ const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 // More panes than this on the right are too short to read; the rest stay one click away as tabs.
 const MAX_WORKERS = 4;
 const LEAD_CARD = 101;
+const WORKSHOP = { id: "workshop", type: "block", size: { px: 124 }, content: { mod: "fleet-chrome", props: { part: "workshop" } } };
 const nodeId = (address) => address.replace(/[^A-Za-z0-9]/g, "_");
 const shape = (node) => [node.id, node.size?.px ?? node.size?.weight ?? null, (node.floating ?? []).length, (node.children ?? []).map(shape)];
 
@@ -131,15 +132,22 @@ export default class FleetTabs extends View {
     return [column("crew-a", workers.slice(0, half), 1), column("crew-b", workers.slice(half), 1)];
   }
 
-  // The sidebar header is taller while it shows the Claude usage lines.
+  // The sidebar header is taller while it shows the Claude usage lines, and the workshop
+  // sits under the top bar while it is switched on (a layout installed before it gets it here).
   fit() {
-    const root = layout(), node = find(root, "sidebar-modes"), now = Date.now();
+    const root = layout(), node = find(root, "sidebar-modes"), work = find(root, "work"), now = Date.now();
     const px = pref("usage") ? HEADER.usage : HEADER.plain;
-    if (!node || node.size?.px === px) return false;
+    const shop = Boolean(find(root, "workshop")), want = Boolean(pref("workshop"));
+    if ((!node || node.size?.px === px) && (!work || shop === want)) return false;
     if (now - (this.fitted ?? 0) < 1500) return true;
     this.fitted = now;
     const next = JSON.parse(JSON.stringify(root));
-    find(next, "sidebar-modes").size = { px };
+    if (node) find(next, "sidebar-modes").size = { px };
+    const column = find(next, "work");
+    if (column && shop !== want) {
+      column.children = column.children.filter((c) => c.id !== "workshop");
+      if (want) column.children.splice(column.children.findIndex((c) => c.id === "tabs-row") + 1, 0, WORKSHOP);
+    }
     run("layout.set", { layout: next });
     return true;
   }

@@ -17,6 +17,11 @@ It installs alongside your own layouts, mods and keys. Nothing of yours is chang
   notification when Herdr is not the window in front (macOS and Omarchy).
 - **Builder**: while an agent works, a small miner builds something at the bottom right
   of its pane (a tree, a house, a jet…).
+- **Workshop**: a strip under the top bar where the shown project works. The lead sits at
+  its own desk on the left; a worker that starts working walks from the break corner to a
+  free desk and gets to work (or waits on you, or holds up what it found: unread), and walks
+  back once it is idle. Other projects with someone at work show as chips; click one to go
+  there. Switch it off in Fleet settings.
 - **Wandering miner**: every few minutes a small miner walks in along the rail, stops
   somewhere and climbs down to the ground. A click on it sends it away.
 - Dark and light themes, a status bar with your machines, carts on a rail.
@@ -68,7 +73,7 @@ When updating, use `./install.sh --keep-layout` so the crew arrangement is not r
   right-click menu and "End resting workers…" to a project's. Both ask first and list who
   ends, sub-agents included; the lead and working agents are never offered. It ends their
   terminals (`terminal.kill`), so the conversation can't be continued in Herdr.
-- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner, Claude usage, resting time, end agent.
+- **Settings**: avatars, theme, question toast, desktop notification, sound, motion, builder, wandering miner, workshop, Claude usage, resting time, end agent.
 - **Agent questions** (optional): `hooks/fleet-ask.sh` lets a Claude Code agent publish its
   question and answer buttons as labels. It is not installed for you; see the file.
 - **Agents that report no status** (for example Hermes run through a wrapper) are listed
@@ -115,7 +120,7 @@ command line. It is the one place where the layout uses the network.
 
 Any switch of Fleet settings can also be set from a key or a script:
 `herdr-app do fleet-tabs.set:usage=on` (`avatars`, `toast`, `notify`, `sound`, `motion`,
-`builder`, `walker`, `usage`, `retire`; `on` or `off`).
+`builder`, `walker`, `workshop`, `usage`, `retire`; `on` or `off`).
 
 ## Source
 
