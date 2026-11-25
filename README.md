@@ -17,11 +17,13 @@ It installs alongside your own layouts, mods and keys. Nothing of yours is chang
   notification when Herdr is not the window in front (macOS and Omarchy).
 - **Builder**: while an agent works, a small miner builds something at the bottom right
   of its pane (a tree, a house, a jet…).
-- **Workshop**: a strip under the top bar where the shown project works. The lead sits at
-  its own desk on the left; a worker that starts working walks from the break corner to a
-  free desk and gets to work (or waits on you, or holds up what it found: unread), and walks
-  back once it is idle. Other projects with someone at work show as chips; click one to go
-  there. Switch it off in Fleet settings.
+- **Workshop**: the top of the work area, as tall as the sidebar's header, where the shown
+  project works. The lead sits at its own desk on the left; a worker that starts working
+  walks from the break corner to a free desk and gets to work (or waits on you, or holds up
+  what it found: unread), and walks back once it is idle. On the wall: a board with the
+  counts, the mailbox, chips for other projects at work and for the space's shells, and "+"
+  for a new agent. It replaces the Home / Office / tabs bar (Home and Office stay on
+  cmd-shift-h and cmd-shift-o); switch it off in Fleet settings to get that bar back.
 - **Wandering miner**: every few minutes a small miner walks in along the rail, stops
   somewhere and climbs down to the ground. A click on it sends it away.
 - Dark and light themes, a status bar with your machines, carts on a rail.

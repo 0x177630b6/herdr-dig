@@ -143,19 +143,6 @@
           }
         },
         {
-          "id": "workshop",
-          "type": "block",
-          "size": {
-            "px": 124
-          },
-          "content": {
-            "mod": "fleet-chrome",
-            "props": {
-              "part": "workshop"
-            }
-          }
-        },
-        {
           "id": "rail",
           "type": "block",
           "size": {

@@ -1,15 +1,12 @@
 // The fleet window's static chrome, one copy per part (props.part):
-// banner, modes (mode switch + summary strip), footer, rail, ground, workshop.
+// banner, modes (mode switch + summary strip), footer, rail, ground.
 // The rail also sends out the wandering miner: it walks in along the rail, stops somewhere
 // and climbs down to the ground (that part is the fleet-walker window, opened from here).
-// The workshop: the shown project as a workshop over the crew view. The lead at its desk;
-// a worker that starts working walks from the break corner to a free desk and gets to work,
-// and walks back once it is idle again.
 
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, window, layout, settings, shared, openOverlay, closeOverlay } from "herdr";
-import { SPR, PIXEL, CAVE, tk, fleet, find, pref, pick, pickProject, agentMenu, ago, sidebarMode, setSidebarMode, toggleTheme, pixelButton, statusIcon, sprite, strip, ground, caveWall } from "./lib.js";
+import { SPR, PIXEL, tk, fleet, find, pref, sidebarMode, setSidebarMode, toggleTheme, pixelButton, statusIcon, sprite, strip, ground } from "./lib.js";
 
 const MODES = [["projects", "Projects"], ["machines", "Machines"], ["inbox", "Inbox"], ["office-mini", "Office"]];
 const CROSSING = 26000;
@@ -17,35 +14,12 @@ const CROSSING = 26000;
 // down, and the wait between two strolls (3 to 7 minutes).
 const PACE = 38, DOWN = 34, STAND = 500;
 const pause = () => 180000 + Math.random() * 240000;
-// The workshop: px a second walking, a desk's width, the lead's corner and the break corner.
-const STROLL = 120, DESK = 176, LEAD = 200, BREAK = 230;
-// The scene's height above the ground strip (the workshop block is 124 px).
-const SCENE = 108;
 const STILL = { blocked: "i_block_still.png", done: "i_done_still.png", working: "i_work_still.png", idle: "i_idle_still.png" };
 
 export default class FleetChrome extends View {
   init(_props, cx) {
     this.width = 0;
     this.carts = [{ lap: 0, go: false }, { lap: 0, go: false }];
-    if (props()?.part === "workshop") {
-      // Who sits at which desk (sticky), where each one was last drawn, who is on the way.
-      this.desks = [];
-      this.spot = {};
-      this.walks = {};
-      this.steps = 0;
-      this.dirty = false;
-      // A walk starts drawn at its start, then this timer sends it off and later seats it
-      // (a timer started from render never redraws).
-      cx.timer.every(120, (cx) => {
-        const now = Date.now();
-        for (const [address, w] of Object.entries(this.walks)) {
-          if (!w.go && now - w.at > 60) { w.go = true; this.dirty = true; }
-          else if (w.go && now > w.at + 60 + w.ms) { delete this.walks[address]; this.dirty = true; }
-        }
-        if (this.dirty) { this.dirty = false; cx.notify(); }
-      });
-      return;
-    }
     if (props()?.part !== "rail") return;
     // A cart crosses left to right in 26 s; the second one starts half a crossing later.
     // Each lap is a new element at the left edge, then one native transition across.
@@ -93,8 +67,7 @@ export default class FleetChrome extends View {
     const root = layout(), px = (id, d) => find(root, id)?.size?.px ?? d;
     // Sizes in a mod are zoomed; the window's own, a block's measured width and `at` are not.
     const zoom = settings().zoom || 1;
-    // The rail sits under the top bar, and under the workshop when it is shown.
-    const top = px("tabs-row", 44) + (find(root, "workshop") ? px("workshop", 0) : 0), lead = 400;
+    const top = px("tabs-row", 44), lead = 400;
     const height = Math.round(this.view.height / zoom - top - px("status", 30) - px("ground", 16) + 3);
     if (height < 160) return null;
     const id = openOverlay({ mod: "fleet-walker", kind: "window", frame: "none",
@@ -203,104 +176,6 @@ export default class FleetChrome extends View {
       .when(Boolean(miner), (el) => el.child(miner));
   }
 
-  workshop(t) {
-    const model = fleet(), p = model.active;
-    const zoom = settings().zoom || 1;
-    const w = (this.width || 1600) / zoom;
-    const moving = pref("motion");
-    // At a desk: working, waiting on you, or finished and not read yet. Resting ones are not here.
-    const busy = (a) => !a.offline && !a.resting && a.status !== "idle";
-    const workers = p ? p.workers.filter((a) => !a.offline && !a.resting) : [];
-    const slots = Math.max(1, Math.floor((w - LEAD - BREAK) / DESK));
-    const active = new Set(workers.filter(busy).map((a) => a.address));
-    // Sticky desks: someone keeps theirs while busy; a newcomer takes the first free one.
-    this.desks = this.desks.slice(0, slots).map((x) => (active.has(x) ? x : null));
-    while (this.desks.length < slots) this.desks.push(null);
-    for (const a of workers.filter(busy)) {
-      if (this.desks.includes(a.address)) continue;
-      const free = this.desks.indexOf(null);
-      if (free >= 0) this.desks[free] = a.address;
-    }
-    const seated = new Set(this.desks.filter(Boolean));
-    const waiting = workers.filter((a) => busy(a) && !seated.has(a.address)).length;
-    const idle = workers.filter((a) => !busy(a));
-    const breakX = w - BREAK + 20;
-    // Where each one belongs now; a change of place is a walk.
-    const target = new Map();
-    this.desks.forEach((x, i) => { if (x) target.set(x, LEAD + i * DESK + 8); });
-    idle.slice(0, 3).forEach((a, i) => target.set(a.address, breakX + i * 46));
-    const now = Date.now();
-    for (const [address, x] of target) {
-      // Mid-way and sent elsewhere: it turns where it is.
-      const k = this.walks[address];
-      const was = k ? Math.round(k.from + (k.to - k.from) * Math.min(1, Math.max(0, (now - k.at - 60) / k.ms))) : this.spot[address];
-      if (was !== undefined && x !== (k ? k.to : was) && moving) {
-        this.walks[address] = { n: ++this.steps, from: was, to: x, at: now, ms: Math.max(300, Math.round((Math.abs(x - was) / STROLL) * 1000)), go: false };
-        this.dirty = true;
-      }
-      this.spot[address] = x;
-    }
-    for (const address of Object.keys(this.spot)) if (!target.has(address) && !this.walks[address]) delete this.spot[address];
-    const byAddress = new Map(workers.map((a) => [a.address, a]));
-
-    const pill = (text, color, border) => div().max_w(DESK - 12).truncate().px(6).text_size(11).bg("#0C0E12").border(1).border_color(border).text_color(color).child(text);
-    const said = (a) => (a.status === "blocked" ? "needs you" : a.status === "done" ? "unread" : a.since ? ago(a.since) : "working");
-    const clickable = (el, a) => el.cursor_pointer().on_click(() => pick(a))
-      .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); agentMenu(a); });
-    const MINER = { working: "miner_working.gif", blocked: "miner_blocked.gif", done: "miner_done.gif" };
-
-    // A desk: the name above, the miner at work beside its desk.
-    const desk = (address, i) => {
-      const x = LEAD + i * DESK;
-      const a = address ? byAddress.get(address) : null;
-      const walking = a && this.walks[address];
-      return div().absolute().left(x).top(0).w(DESK).h_full()
-        .child(image(SPR + "desk.gif").absolute().left(56).top(SCENE - 60).w(120).h(60))
-        .when(Boolean(a), (el) => el
-          .child(clickable(div().id(`ws-name-${address}`).absolute().left(8).top(6), a)
-            .child(pill(`${a.name} · ${said(a)}`, a.status === "blocked" ? "#CE9178" : CAVE.text, a.status === "blocked" ? "#CE9178" : a.status === "done" ? "#569CD6" : "#808080")))
-          .when(!walking, (e) => e.child(clickable(div().id(`ws-at-${address}`).absolute().left(-6).top(SCENE - 80), a)
-            .child(image(SPR + MINER[a.status]).w(112).h(80)))));
-    };
-    // On the way: the walking miner, sent from where it was to where it belongs.
-    const walker = (address) => {
-      const k = this.walks[address];
-      const right = k.to > k.from;
-      return image(SPR + (right ? "walker_r.gif" : "walker_l.gif")).id(`ws-walk-${address}-${k.n}`).absolute().top(SCENE - 60).w(55).h(60)
-        .left(k.go ? k.to : k.from).transition("left", { duration: k.ms, easing: "linear" });
-    };
-    const lead = p?.lead && !p.lead.offline ? p.lead : null;
-    const others = model.projects.filter((x) => x !== p && x.agents.some((a) => !a.offline && (a.status === "working" || a.status === "blocked")));
-
-    return div().id("fleet-workshop").relative().size_full().overflow_hidden().bg("#1E1E1E")
-      .on_size_change((size, cx) => { this.width = size.width; cx.notify(); })
-      .children(caveWall())
-      .child(div().absolute().left(0).right(0).bottom(0).child(ground()))
-      .child(div().absolute().left(0).right(0).top(0).bottom(16)
-        // The lead's corner: its robot behind the big desk.
-        .when(Boolean(lead), (el) => el.child(clickable(div().id("ws-lead").absolute().left(16).top(0).w(LEAD - 24).h_full(), lead)
-          .child(h_flex().absolute().left(0).top(6).gap(6).items_center()
-            .child(statusIcon(lead.status)).child(div().max_w(LEAD - 50).truncate().font_semibold().text_size(12).text_color(CAVE.text).child(lead.name)))
-          .when(Boolean(pref("avatars")), (e) => e.child(image(p.avatar).absolute().left(36).top(SCENE - 82).w(48).h(48)))
-          .child(image(SPR + "desk.gif").absolute().left(0).top(SCENE - 60).w(120).h(60))))
-        .when(!p, (el) => el.child(div().absolute().left(16).top(10).text_size(12).text_color(CAVE.muted).child("Pick a project: its crew works here.")))
-        .children(this.desks.map(desk))
-        // The break corner: who is idle, sitting it out.
-        .child(div().absolute().left(w - BREAK).top(0).w(BREAK).h_full()
-          .child(div().absolute().left(12).top(6).text_size(11).text_color(CAVE.muted)
-            .child([idle.length ? `zz ${idle.length} on a break` : "break corner", waiting ? `+${waiting} more at work` : "", p?.resting.length ? `${p.resting.length} resting` : ""].filter(Boolean).join(" · ")))
-          .child(div().absolute().left(14).right(14).top(SCENE - 14).h(14).bg("#6C5A44").border_t(3).border_color("#8B7355")))
-        .children(idle.slice(0, 3).filter((a) => !this.walks[a.address]).map((a, i) => clickable(div().id(`ws-idle-${a.address}`).absolute().left(breakX + i * 46).top(SCENE - 60), a)
-          .tooltip(`${a.name}, idle`).child(image(SPR + "walker_stand.png").w(45).h(60))))
-        .children(Object.keys(this.walks).filter((x) => target.has(x)).map(walker))
-        // Elsewhere: the other projects with someone at work.
-        .when(others.length > 0, (el) => el.child(h_flex().absolute().right(BREAK + 8).top(6).gap(6)
-          .children(others.slice(0, 4).map((x) => h_flex().id(`ws-other-${x.id}`).gap(4).px(6).items_center().bg("#0C0E12").border(1).border_color(x.color).cursor_pointer()
-            .on_click(() => pickProject(x)).text_size(11).text_color(CAVE.text)
-            .child(statusIcon(x.agents.some((a) => a.status === "blocked" && !a.offline) ? "blocked" : "working", 14))
-            .child(`${x.name} ${x.working}`))))));
-  }
-
   render() {
     const t = tk();
     switch (props()?.part) {
@@ -308,7 +183,6 @@ export default class FleetChrome extends View {
       case "modes": return this.modes(t);
       case "footer": return this.footer(t);
       case "rail": return this.rail(t);
-      case "workshop": return this.workshop(t);
       default: return div().size_full().bg(t.chrome).child(ground());
     }
   }
