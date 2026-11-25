@@ -184,13 +184,16 @@ export function fleet() {
     const tab = tabs.get(a?.tab ?? "");
     const title = clean(a?.title ?? x.title);
     const telling = title && title !== x.address && !/^[~/]/.test(title) && !title.includes("@") && title.toLowerCase() !== x.program?.key && title !== x.program?.name;
+    // A one-word title ("lepak-orchestrator") is a name the agent took for itself: it wins over
+    // the name the terminal was started with. A sentence is its task, not its name.
+    const renamed = telling && /^[\p{L}\p{N}][\p{L}\p{N}._-]{0,39}$/u.test(title) ? title : null;
     const machine = machineOf(x.address);
     const labels = { ...(x.labels ?? {}) };
     if (opt?.labels?.[x.address]) Object.assign(labels, opt.labels[x.address]);
     list.push({
       address: x.address, machine, machineLabel: machineLabel(machine), space, project: project.name,
       // A tab named after its program ("Claude Code") says nothing: the agent's own title wins.
-      name: x.name || (tab?.named && tab.name !== x.program?.name ? tab.name : null) || (telling ? title : null) || x.program?.name || x.address,
+      name: renamed || x.name || (tab?.named && tab.name !== x.program?.name ? tab.name : null) || (telling ? title : null) || x.program?.name || x.address,
       status: word(a ? a.status : x.status === "done" ? "idle" : x.status),
       pane: a?.pane ?? null, tab: a?.tab ?? (labels["herdr.tab"] ? (machine ? `${machine}/` : "") + labels["herdr.tab"] : null), parent: x.parent ?? null, labels,
       report: x.report ?? null, focused: Boolean(a?.focused), offline: false,
