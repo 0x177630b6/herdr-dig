@@ -62,7 +62,7 @@ export function find(node, id) {
 
 // --- preferences (shared state: every mod sees them, they survive restarts) ---
 
-const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, workshop: true, usage: false, retire: false, rest: 12, local: "local" };
+const PREFS = { avatars: true, toast: true, notify: true, sound: false, motion: true, builder: true, walker: true, usage: false, retire: false, rest: 12, local: "local" };
 // `rest`: hours a worker stays idle before it goes under "Resting" (0: never).
 // The sidebar header's height: taller when the Claude usage lines are shown under the counts.
 export const HEADER = { plain: 108, usage: 172 };

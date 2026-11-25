@@ -135,7 +135,7 @@
           "id": "tabs-row",
           "type": "block",
           "size": {
-            "px": 44
+            "px": 58
           },
           "window_drag": true,
           "content": {
